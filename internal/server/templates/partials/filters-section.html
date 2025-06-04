@@ -1,0 +1,22 @@
+{{define "filters-section"}}
+<div class="filter-tabs">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <ul class="nav nav-pills" id="strategyTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-strategy="all">All Results</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-strategy="mobile">Mobile Only</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-strategy="desktop">Desktop Only</a>
+                </li>
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <input type="text" class="form-control search-box text-white" id="searchInput" placeholder="Search URLs...">
+        </div>
+    </div>
+</div>
+{{end}}

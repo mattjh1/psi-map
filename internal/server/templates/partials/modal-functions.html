@@ -1,0 +1,57 @@
+{{define "modal-functions"}}
+function showDetails(index) {
+    const result = resultsData[Math.floor(index / 2)];
+    const strategy = index % 2 === 0 ? 'Mobile' : 'Desktop';
+    const strategyData = index % 2 === 0 ? result.Mobile : result.Desktop;
+    
+    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+    const modalBody = document.getElementById('modalBody');
+    
+    modalBody.innerHTML = generateDetailHTML(result, strategy, strategyData);
+    modal.show();
+}
+
+function generateDetailHTML(result, strategy, strategyData) {
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-link me-2"></i>URL Details</h6>
+                <p><strong>URL:</strong> ${result.URL}</p>
+                <p><strong>Strategy:</strong> <span class="badge ${strategy === 'Mobile' ? 'badge-info' : 'badge-secondary'}">${strategy.toLowerCase()}</span></p>
+                <p><strong>Load Time:</strong> ${strategyData.Elapsed || 'N/A'}</p>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-chart-bar me-2"></i>Scores</h6>
+    `;
+    
+    if (strategyData.Error) {
+        html += `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${strategyData.Error.Error}</div>`;
+    } else if (strategyData.Scores) {
+        html += `
+            <div class="row">
+                <div class="col-sm-6"><strong>Performance:</strong> ${Math.round(strategyData.Scores.Performance * 100)}</div>
+                <div class="col-sm-6"><strong>Accessibility:</strong> ${Math.round(strategyData.Scores.Accessibility * 100)}</div>
+                <div class="col-sm-6"><strong>Best Practices:</strong> ${Math.round(strategyData.Scores.BestPractices * 100)}</div>
+                <div class="col-sm-6"><strong>SEO:</strong> ${Math.round(strategyData.Scores.SEO * 100)}</div>
+            </div>
+        `;
+    }
+    
+    html += '</div></div>';
+    
+    if (strategyData.Metrics) {
+        html += `
+            <hr>
+            <h6><i class="fas fa-tachometer-alt me-2"></i>Core Web Vitals</h6>
+            <div class="row">
+                <div class="col-md-3"><strong>FCP:</strong> ${strategyData.Metrics.FirstContentfulPaint || 'N/A'}</div>
+                <div class="col-md-3"><strong>LCP:</strong> ${strategyData.Metrics.LargestContentfulPaint || 'N/A'}</div>
+                <div class="col-md-3"><strong>CLS:</strong> ${strategyData.Metrics.CumulativeLayoutShift || 'N/A'}</div>
+                <div class="col-md-3"><strong>FID:</strong> ${strategyData.Metrics.FirstInputDelay || 'N/A'}</div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+{{end}}

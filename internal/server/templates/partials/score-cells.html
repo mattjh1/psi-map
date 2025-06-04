@@ -1,0 +1,18 @@
+{{define "score-cells"}}
+{{if .}}
+    <td class="{{getScoreClass .Performance}}">
+        <strong>{{formatScore .Performance}}</strong>
+    </td>
+    <td class="{{getScoreClass .Accessibility}}">
+        <strong>{{formatScore .Accessibility}}</strong>
+    </td>
+    <td class="{{getScoreClass .BestPractices}}">
+        <strong>{{formatScore .BestPractices}}</strong>
+    </td>
+    <td class="{{getScoreClass .SEO}}">
+        <strong>{{formatScore .SEO}}</strong>
+    </td>
+{{else}}
+    <td colspan="4" class="text-muted">No score data</td>
+{{end}}
+{{end}}

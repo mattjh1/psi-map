@@ -1,0 +1,15 @@
+{{define "core-web-vitals-cell"}}
+<td>
+    {{if hasMetrics .}}
+        {{$grades := .Metrics.GetCoreWebVitalsGrade}}
+        <div class="d-flex gap-1">
+            <span class="badge {{getGradeClass (index $grades "fcp")}}" title="First Contentful Paint">FCP</span>
+            <span class="badge {{getGradeClass (index $grades "lcp")}}" title="Largest Contentful Paint">LCP</span>
+            <span class="badge {{getGradeClass (index $grades "cls")}}" title="Cumulative Layout Shift">CLS</span>
+            <span class="badge {{getGradeClass (index $grades "fid")}}" title="First Input Delay">FID</span>
+        </div>
+    {{else}}
+        <span class="text-muted">N/A</span>
+    {{end}}
+</td>
+{{end}}

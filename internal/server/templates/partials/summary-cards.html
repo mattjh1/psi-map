@@ -1,0 +1,28 @@
+{{define "summary-cards"}}
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6">
+        <div class="metric-card text-center">
+            <h3 class="text-primary">{{.Summary.TotalPages}}</h3>
+            <p class="text-white mb-0">Total Pages</p>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="metric-card text-center">
+            <h3 class="text-success">{{.Summary.SuccessfulPages}}</h3>
+            <p class="text-white mb-0">Successful</p>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="metric-card text-center">
+            <h3 class="text-danger">{{.Summary.FailedPages}}</h3>
+            <p class="text-white mb-0">Failed</p>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="metric-card text-center">
+            <h3 class="text-warning">{{printf "%.0f" (index .Summary.AverageScores "performance")}}</h3>
+            <p class="text-white mb-0">Avg Performance</p>
+        </div>
+    </div>
+</div>
+{{end}}

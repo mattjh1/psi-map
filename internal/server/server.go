@@ -1,12 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -21,7 +21,7 @@ import (
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
-//go:embed templates/report.html
+//go:embed templates/*.html templates/partials/*.html
 var templateFS embed.FS
 
 type Server struct {
@@ -85,7 +85,7 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Results   []types.PageResult
-		Summary   ReportSummary
+		Summary   types.ReportSummary
 		Generated time.Time
 	}{
 		Results:   s.results,
@@ -93,10 +93,16 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 		Generated: time.Now(),
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	// Use a bytes.Buffer to catch template output first
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "report.html", data); err != nil {
 		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	// Only write to ResponseWriter after template succeeded
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(buf.Bytes())
 }
 
 // handleAPIResults serves JSON data for all results
@@ -125,22 +131,9 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-// ReportSummary contains aggregate statistics
-type ReportSummary struct {
-	TotalPages        int
-	SuccessfulPages   int
-	FailedPages       int
-	AverageScores     map[string]float64
-	ScoreDistribution map[string][]int // good, needs-improvement, poor counts
-	FastestPage       *types.Result
-	SlowestPage       *types.Result
-	BestPerformance   *types.Result
-	WorstPerformance  *types.Result
-}
-
 // generateSummary creates aggregate statistics from results
-func (s *Server) generateSummary() ReportSummary {
-	summary := ReportSummary{
+func (s *Server) generateSummary() types.ReportSummary {
+	summary := types.ReportSummary{
 		TotalPages:        len(s.results),
 		AverageScores:     make(map[string]float64),
 		ScoreDistribution: make(map[string][]int),
@@ -240,7 +233,7 @@ func GenerateHTMLFile(results []types.PageResult, filename string) error {
 
 	data := struct {
 		Results   []types.PageResult
-		Summary   ReportSummary
+		Summary   types.ReportSummary
 		Generated time.Time
 	}{
 		Results:   results,
@@ -258,18 +251,13 @@ func GenerateHTMLFile(results []types.PageResult, filename string) error {
 }
 
 // GenerateSummary creates a summary from results without needing a server instance
-func GenerateSummary(results []types.PageResult) ReportSummary {
+func GenerateSummary(results []types.PageResult) types.ReportSummary {
 	s := &Server{results: results}
 	return s.generateSummary()
 }
 
 func loadReportTemplateFromFS() (*template.Template, error) {
-	content, err := fs.ReadFile(templateFS, "templates/report.html")
-	if err != nil {
-		return nil, err
-	}
-
-	tmpl, err := template.New("report").Funcs(template.FuncMap{
+	return template.New("report").Funcs(template.FuncMap{
 		"formatDuration": formatDuration,
 		"formatScore":    formatScore,
 		"getGradeClass":  getGradeClass,
@@ -278,9 +266,10 @@ func loadReportTemplateFromFS() (*template.Template, error) {
 		"formatBytes":    formatBytes,
 		"toJSON":         toJSON,
 		"add":            func(a, b int) int { return a + b },
-	}).Parse(string(content))
-
-	return tmpl, err
+		"mul":            func(a, b int) int { return a * b },
+		"dict":           dict,
+		"getResult":      getResult,
+	}).ParseFS(templateFS, "templates/*.html", "templates/partials/*.html")
 }
 
 // Utility functions for templates
@@ -339,9 +328,34 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
+func toJSON(v any) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return template.JS("null")
+	}
+	return template.JS(b)
+}
+
+func dict(values ...any) map[string]any {
+	if len(values)%2 != 0 {
+		panic("dict requires an even number of arguments")
+	}
+	dict := make(map[string]any, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		key, ok := values[i].(string)
+		if !ok {
+			panic("dict keys must be strings")
+		}
+		dict[key] = values[i+1]
+	}
+	return dict
+}
+
+func getResult(page types.PageResult, strategy string) types.Result {
+	if strategy == "mobile" {
+		return page.Mobile
+	}
+	return page.Desktop
 }
 
 // findAvailablePort finds an available port starting from the given port

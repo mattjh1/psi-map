@@ -1,0 +1,27 @@
+{{define "results-table"}}
+<div class="data-table">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0" id="resultsTable">
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>Strategy</th>
+                    <th>Performance</th>
+                    <th>Accessibility</th>
+                    <th>Best Practices</th>
+                    <th>SEO</th>
+                    <th>Load Time</th>
+                    <th>Core Web Vitals</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range $index, $page := .Results}}
+                    {{template "table-row" dict "Page" $page "Index" $index "Strategy" "mobile"}}
+                    {{template "table-row" dict "Page" $page "Index" $index "Strategy" "desktop"}}
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}

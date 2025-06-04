@@ -1,0 +1,39 @@
+{{define "table-row"}}
+{{$page := .Page}}
+{{$index := .Index}}
+{{$strategy := .Strategy}}
+{{$result := getResult $page $strategy}}
+<tr data-strategy="{{$strategy}}" data-url="{{$page.URL}}">
+    <td>
+        <div class="d-flex align-items-center">
+            {{if $result.Error}}
+                <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+            {{else}}
+                <i class="fas fa-check-circle text-success me-2"></i>
+            {{end}}
+            <span class="text-truncate" style="max-width: 200px;" title="{{$page.URL}}">
+                {{$page.URL}}
+            </span>
+        </div>
+    </td>
+    <td>
+        <span class="badge {{if eq $strategy "mobile"}}badge-info{{else}}badge-secondary{{end}}">
+            <i class="fas {{if eq $strategy "mobile"}}fa-mobile-alt{{else}}fa-desktop{{end}} me-1"></i>{{$strategy}}
+        </span>
+    </td>
+    {{if $result.Error}}
+        <td colspan="6" class="text-danger">
+            <i class="fas fa-times me-2"></i>{{$result.Error.Error}}
+        </td>
+    {{else}}
+        {{template "score-cells" $result.Scores}}
+        <td><span class="badge badge-info">{{formatDuration $result.Elapsed}}</span></td>
+        {{template "core-web-vitals-cell" $result}}
+    {{end}}
+    <td>
+        <button class="btn btn-sm btn-outline-primary" onclick="showDetails({{if eq $strategy "mobile"}}{{mul $index 2}}{{else}}{{add (mul $index 2) 1}}{{end}})">
+            <i class="fas fa-eye"></i> Details
+        </button>
+    </td>
+</tr>
+{{end}}
