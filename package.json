@@ -1,0 +1,27 @@
+{
+  "name": "psi-map",
+  "version": "1.0.0",
+  "description": "A command-line tool for batch PageSpeed Insights analysis using sitemap.xml files.",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "husky",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattjh1/psi-map.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mattjh1/psi-map/issues"
+  },
+  "homepage": "https://github.com/mattjh1/psi-map#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "conventional-changelog-cli": "^5.0.0",
+    "husky": "^9.1.7"
+  }
+}

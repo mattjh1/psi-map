@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  GO_VERSION: '1.22'
+  NODE_VERSION: '22'
+  APP_NAME: psi-map
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.npm
+          key: ${{ runner.os }}-go-node-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-go-node-
+
+      - run: make ci-build
+
+      - id: release_notes
+        run: |
+          npm install --no-save conventional-changelog-cli
+          npx conventional-changelog -p angular -r 2 -i CHANGELOG.md -s
+          VERSION=${GITHUB_REF#refs/tags/}
+          awk "/^## $VERSION/,/^## [0-9]/ {print}" CHANGELOG.md | head -n -1 > release_notes.txt
+
+      - id: commit_changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for $VERSION [skip ci]"
+          git push origin HEAD:main
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/${{ env.APP_NAME }}-*
+            dist/checksums.txt
+          body_path: release_notes.txt
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

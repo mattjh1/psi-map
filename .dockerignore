@@ -1,0 +1,15 @@
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+dist/
+coverage/
+.env
+.env.*
+*.md
+.github/
+Makefile
+node_modules
+package-lock.json
+package.json
