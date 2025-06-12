@@ -14,6 +14,9 @@ import (
 	"github.com/mattjh1/psi-map/internal/types/psi"
 )
 
+// Package-level HTTP client for testability
+var httpClient = &http.Client{}
+
 // FetchScore retrieves comprehensive performance data from the PSI API
 func FetchScore(pageURL, strategy string) types.Result {
 	start := time.Now()
@@ -35,7 +38,7 @@ func FetchScore(pageURL, strategy string) types.Result {
 
 	fullURL := baseURL + "?" + params.Encode()
 
-	resp, err := http.Get(fullURL)
+	resp, err := httpClient.Get(fullURL)
 	if err != nil {
 		return types.Result{
 			URL:      pageURL,
@@ -88,23 +91,24 @@ func extractResultData(data psi.PSIResponse, pageURL, strategy string, elapsed t
 
 	// Extract category scores
 	if lr := data.LighthouseResult; lr != nil {
-		result.Scores = &types.CategoryScores{
-			Performance:   getScore(lr.Categories.Performance),
-			Accessibility: getScore(lr.Categories.Accessibility),
-			BestPractices: getScore(lr.Categories.BestPractices),
-			SEO:           getScore(lr.Categories.SEO),
+		if lr.Categories != nil {
+			result.Scores = &types.CategoryScores{
+				Performance:   getScore(lr.Categories.Performance),
+				Accessibility: getScore(lr.Categories.Accessibility),
+				BestPractices: getScore(lr.Categories.BestPractices),
+				SEO:           getScore(lr.Categories.SEO),
+			}
 		}
 
-		// Extract core web vitals and metrics
-		result.Metrics = extractMetrics(lr.Audits)
+		if lr.Audits != nil {
+			result.Metrics = extractMetrics(lr.Audits)
+			result.Opportunities = extractOpportunities(lr.Audits)
+		}
 
-		// Extract opportunities for improvement
-		result.Opportunities = extractOpportunities(lr.Audits)
-
-		// Extract page info
 		if lr.FinalDisplayedURL != "" {
 			result.FinalURL = lr.FinalDisplayedURL
 		}
+
 		result.UserAgent = lr.UserAgent
 	}
 

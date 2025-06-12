@@ -78,7 +78,7 @@ func (m *Metrics) GetCoreWebVitalsGrade() map[string]string {
 
 // FieldData represents real user metrics from Chrome UX Report
 type FieldData struct {
-	OriginFallback bool                   `json:"origin_fallback"`
+	OriginFallback bool                   `json:"originFallback"`
 	Metrics        map[string]FieldMetric `json:"metrics"`
 }
 
@@ -93,6 +93,6 @@ type Opportunity struct {
 	ID               string  `json:"id"`
 	Title            string  `json:"title"`
 	Description      string  `json:"description"`
-	Impact           string  `json:"impact"`            // "High", "Medium", "Low"
-	PotentialSavings float64 `json:"potential_savings"` // Time savings in ms
+	Impact           string  `json:"impact"`           // "High", "Medium", "Low"
+	PotentialSavings float64 `json:"potentialSavings"` // Time savings in ms
 }

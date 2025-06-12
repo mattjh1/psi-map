@@ -59,7 +59,7 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 		fmt.Printf("Failed to save cache: %v", err)
 		fmt.Printf("Continuing...")
 	} else {
-		fmt.Printf("Results cached successfully")
+		fmt.Println("[INFO] Results cached successfully")
 	}
 
 	// Handle output based on configuration
@@ -70,7 +70,6 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 func handleOutput(config *types.AnalysisConfig, results []types.PageResult, elapsed time.Duration) error {
 	switch {
 	case config.StartServer:
-		fmt.Println("Starting web server...")
 		if err := server.Start(results, config.ServerPort); err != nil {
 			return fmt.Errorf("failed to start server: %w", err)
 		}
