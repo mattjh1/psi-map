@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
@@ -51,8 +52,12 @@ func Start(results []types.PageResult, port string) error {
 	mux.HandleFunc("/static/", s.handleStatic)
 
 	s.server = &http.Server{
-		Addr:    ":" + s.port,
-		Handler: mux,
+		Addr:              ":" + s.port,
+		Handler:           mux,
+		ReadHeaderTimeout: constants.ReadHeaderTimeout, // Prevents Slowloris attacks
+		ReadTimeout:       constants.ReadTimeout,
+		WriteTimeout:      constants.WriteTimeout,
+		IdleTimeout:       constants.IdleTimeout,
 	}
 
 	// Start server in goroutine
@@ -108,7 +113,9 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 // handleAPIResults serves JSON data for all results
 func (s *Server) handleAPIResults(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.results)
+	if err := json.NewEncoder(w).Encode(s.results); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode results: %v", err), http.StatusInternalServerError)
+	}
 }
 
 // handleAPIResult serves JSON data for a specific result
@@ -121,7 +128,9 @@ func (s *Server) handleAPIResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.results[index])
+	if err := json.NewEncoder(w).Encode(s.results[index]); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode results: %v", err), http.StatusInternalServerError)
+	}
 }
 
 // handleStatic serves static CSS/JS (embedded in template for simplicity)
@@ -203,21 +212,22 @@ func (s *Server) processScores(scores *types.CategoryScores, totalScores map[str
 	}
 
 	for category, score := range scoreMap {
-		if score > 0 {
-			totalScores[category] += score
-			scoreCounts[category]++
-
-			var bucket int
-			switch {
-			case score >= 90:
-				bucket = 0 // good
-			case score >= 50:
-				bucket = 1 // needs improvement
-			default:
-				bucket = 2 // poor
-			}
-			distribution[category][bucket]++
+		if score <= 0 {
+			continue
 		}
+		totalScores[category] += score
+		scoreCounts[category]++
+
+		var bucket int
+		switch {
+		case score >= constants.ScoreGoodThreshold:
+			bucket = 0 // good
+		case score >= constants.ScorePoorThreshold:
+			bucket = 1 // needs improvement
+		default:
+			bucket = 2 // poor
+		}
+		distribution[category][bucket]++
 	}
 }
 
@@ -264,7 +274,7 @@ func loadReportTemplateFromFS() (*template.Template, error) {
 		"getScoreClass":  getScoreClass,
 		"hasMetrics":     hasMetrics,
 		"formatBytes":    formatBytes,
-		"toJSON":         toJSON,
+		"toSafeJSON":     toSafeJSON,
 		"add":            func(a, b int) int { return a + b },
 		"mul":            func(a, b int) int { return a * b },
 		"dict":           dict,
@@ -275,7 +285,7 @@ func loadReportTemplateFromFS() (*template.Template, error) {
 // Utility functions for templates
 func formatDuration(d time.Duration) string {
 	if d < time.Second {
-		return fmt.Sprintf("%.0fms", float64(d.Nanoseconds())/1000000)
+		return fmt.Sprintf("%.0fms", float64(d)/float64(time.Millisecond))
 	}
 	return fmt.Sprintf("%.1fs", d.Seconds())
 }
@@ -302,9 +312,9 @@ func getGradeClass(grade string) string {
 
 func getScoreClass(score float64) string {
 	switch {
-	case score >= 90:
+	case score >= constants.ScoreGoodThreshold:
 		return "text-success"
-	case score >= 50:
+	case score >= constants.ScorePoorThreshold:
 		return "text-warning"
 	default:
 		return "text-danger"
@@ -328,19 +338,19 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func toJSON(v any) template.JS {
+func toSafeJSON(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return template.JS("null")
+		return "null"
 	}
-	return template.JS(b)
+	return string(b)
 }
 
 func dict(values ...any) map[string]any {
 	if len(values)%2 != 0 {
 		panic("dict requires an even number of arguments")
 	}
-	dict := make(map[string]any, len(values)/2)
+	dict := make(map[string]any, len(values)/constants.MapSizeDivisor)
 	for i := 0; i < len(values); i += 2 {
 		key, ok := values[i].(string)
 		if !ok {
@@ -405,7 +415,7 @@ func (s *Server) waitForShutdown() error {
 
 	fmt.Println("\n[INFO] Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ShutdownTimeout)
 	defer cancel()
 
 	return s.server.Shutdown(ctx)

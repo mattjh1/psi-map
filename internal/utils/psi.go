@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/types/psi"
 )
@@ -120,7 +121,7 @@ func getScore(category *psi.Category) float64 {
 	if category == nil || category.Score == nil {
 		return 0
 	}
-	return *category.Score * 100
+	return *category.Score * constants.ScoreMultiplier
 }
 
 // extractMetrics pulls out the key performance metrics
@@ -182,9 +183,9 @@ func extractOpportunities(audits map[string]*psi.Audit) []types.Opportunity {
 			// Get impact level based on score
 			if audit.Score != nil {
 				switch {
-				case *audit.Score < 0.5:
+				case *audit.Score < constants.AuditScorePoorThreshold:
 					opp.Impact = "High"
-				case *audit.Score < 0.9:
+				case *audit.Score < constants.AuditScoreGoodThreshold:
 					opp.Impact = "Medium"
 				default:
 					opp.Impact = "Low"

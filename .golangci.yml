@@ -25,8 +25,6 @@ linters-settings:
       - '3'
     ignored-functions:
       - strings.SplitN
-  govet:
-    check-shadowing: true
   misspell:
     locale: US
   nolintlint:
@@ -36,11 +34,12 @@ linters-settings:
 
 linters:
   enable:
+    - copyloopvar
+    - mnd
     - bodyclose
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
     - funlen
     - gochecknoinits
     - goconst
@@ -48,7 +47,6 @@ linters:
     - gocyclo
     - gofmt
     - gofumpt
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -60,11 +58,12 @@ linters:
     - nolintlint
     - staticcheck
     - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
+    - wrapcheck
+    - prealloc
 
 issues:
   exclude-rules:

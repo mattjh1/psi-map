@@ -10,8 +10,8 @@
     console.log('Chart.js available immediately:', typeof Chart !== 'undefined');
     
     // Store results data
-    const resultsData = {{toJSON .Results}};
-    const summaryData = {{toJSON .Summary}};
+    const resultsData = JSON.parse({{ toSafeJSON .Results }});
+    const summaryData = JSON.parse({{ toSafeJSON .Summary }});
     
     console.log('Data loaded:', { resultsData, summaryData });
     

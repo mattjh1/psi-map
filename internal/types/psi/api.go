@@ -17,7 +17,7 @@ type LoadingExperience struct {
 	ID              string                    `json:"id,omitempty"`
 	Metrics         map[string]*LoadingMetric `json:"metrics,omitempty"`
 	OverallCategory string                    `json:"overall_category,omitempty"`
-	InitialUrl      string                    `json:"initial_url,omitempty"`
+	InitialURL      string                    `json:"initial_url,omitempty"`
 	OriginFallback  bool                      `json:"origin_fallback,omitempty"`
 }
 

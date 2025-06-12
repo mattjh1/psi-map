@@ -1,5 +1,7 @@
 package types
 
+import "github.com/mattjh1/psi-map/internal/constants"
+
 // CategoryScores holds scores for all Lighthouse categories
 type CategoryScores struct {
 	Performance   float64 `json:"performance"`
@@ -33,42 +35,42 @@ func (m *Metrics) GetCoreWebVitalsGrade() map[string]string {
 
 	// FCP grading (< 1.8s = good, < 3s = needs improvement, >= 3s = poor)
 	switch {
-	case m.FirstContentfulPaint < 1800:
-		grades["fcp"] = "good"
-	case m.FirstContentfulPaint < 3000:
-		grades["fcp"] = "needs-improvement"
+	case m.FirstContentfulPaint < constants.FCPGoodThreshold:
+		grades["fcp"] = constants.GradeGood
+	case m.FirstContentfulPaint < constants.FCPPoorThreshold:
+		grades["fcp"] = constants.GradeNeedsImprovement
 	default:
-		grades["fcp"] = "poor"
+		grades["fcp"] = constants.GradePoor
 	}
 
 	// LCP grading (< 2.5s = good, < 4s = needs improvement, >= 4s = poor)
 	switch {
-	case m.LargestContentfulPaint < 2500:
-		grades["lcp"] = "good"
-	case m.LargestContentfulPaint < 4000:
-		grades["lcp"] = "needs-improvement"
+	case m.LargestContentfulPaint < constants.LCPGoodThreshold:
+		grades["lcp"] = constants.GradeGood
+	case m.LargestContentfulPaint < constants.LCPPoorThreshold:
+		grades["lcp"] = constants.GradeNeedsImprovement
 	default:
-		grades["lcp"] = "poor"
+		grades["lcp"] = constants.GradePoor
 	}
 
 	// CLS grading (< 0.1 = good, < 0.25 = needs improvement, >= 0.25 = poor)
 	switch {
-	case m.CumulativeLayoutShift < 0.1:
-		grades["cls"] = "good"
-	case m.CumulativeLayoutShift < 0.25:
-		grades["cls"] = "needs-improvement"
+	case m.CumulativeLayoutShift < constants.CLSGoodThreshold:
+		grades["cls"] = constants.GradeGood
+	case m.CumulativeLayoutShift < constants.CLSPoorThreshold:
+		grades["cls"] = constants.GradeNeedsImprovement
 	default:
-		grades["cls"] = "poor"
+		grades["cls"] = constants.GradePoor
 	}
 
 	// FID grading (< 100ms = good, < 300ms = needs improvement, >= 300ms = poor)
 	switch {
-	case m.FirstInputDelay < 100:
-		grades["fid"] = "good"
-	case m.FirstInputDelay < 300:
-		grades["fid"] = "needs-improvement"
+	case m.FirstInputDelay < constants.FIDGoodThreshold:
+		grades["fid"] = constants.GradeGood
+	case m.FirstInputDelay < constants.FIDPoorThreshold:
+		grades["fid"] = constants.GradeNeedsImprovement
 	default:
-		grades["fid"] = "poor"
+		grades["fid"] = constants.GradePoor
 	}
 
 	return grades

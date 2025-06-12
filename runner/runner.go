@@ -1,13 +1,14 @@
 package runner
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
+	"github.com/pterm/pterm"
 )
 
 // RunBatch runs PSI tests concurrently for a list of URLs with limited concurrency.
@@ -15,40 +16,37 @@ func RunBatch(urls []string, maxConcurrent int) []types.PageResult {
 	var wg sync.WaitGroup
 	results := make([]types.PageResult, len(urls))
 	sem := make(chan struct{}, maxConcurrent)
+	var completed int32
 
-	var completed int32 // for progress tracking
+	// Create progress bar
+	var progressbar *pterm.ProgressbarPrinter
+	progressbar, _ = pterm.DefaultProgressbar.WithTotal(len(urls)).WithTitle("Processing URLs").Start()
 
 	for i, url := range urls {
 		wg.Add(1)
-
 		go func(i int, url string) {
 			defer wg.Done()
-			sem <- struct{}{}        // acquire slot
-			defer func() { <-sem }() // release slot
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-			fmt.Printf("[Worker] Starting: %s\n", url)
 			start := time.Now()
-
 			var wgInner sync.WaitGroup
 			var mobile, desktop types.Result
 
-			wgInner.Add(2)
-
+			wgInner.Add(constants.WaitGroupWorkers)
 			go func() {
 				defer wgInner.Done()
-				fmt.Printf("  ↳ [Mobile] Fetching: %s\n", url)
 				mobile = utils.FetchScore(url, "mobile")
 			}()
 
 			go func() {
 				defer wgInner.Done()
-				fmt.Printf("  ↳ [Desktop] Fetching: %s\n", url)
 				desktop = utils.FetchScore(url, "desktop")
 			}()
 
 			wgInner.Wait()
-
 			duration := time.Since(start)
+
 			results[i] = types.PageResult{
 				URL:      url,
 				Mobile:   mobile,
@@ -56,24 +54,16 @@ func RunBatch(urls []string, maxConcurrent int) []types.PageResult {
 				Duration: duration,
 			}
 
-			fmt.Printf("[Worker] Finished: %s in %s\n", url, duration)
+			// Update progress
 			atomic.AddInt32(&completed, 1)
+			progressbar.UpdateTitle("Processing URLs - " + url)
+			progressbar.Increment()
 		}(i, url)
 	}
 
-	// Progress monitor
-	go func() {
-		total := len(urls)
-		for {
-			time.Sleep(3 * time.Second)
-			done := atomic.LoadInt32(&completed)
-			fmt.Printf("[INFO] Progress: %d / %d completed\n", done, total)
-			if int(done) == total {
-				break
-			}
-		}
-	}()
-
 	wg.Wait()
+
+	pterm.Success.Printf("All tasks completed!")
+
 	return results
 }

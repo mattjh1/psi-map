@@ -2,10 +2,10 @@ package psi
 
 // LighthouseResult contains the Lighthouse audit results
 type LighthouseResult struct {
-	RequestedUrl       string                    `json:"requestedUrl,omitempty"`
+	RequestedURL       string                    `json:"requestedUrl,omitempty"`
 	FinalDisplayedURL  string                    `json:"finalDisplayedUrl,omitempty"`
 	MainDocumentURL    string                    `json:"mainDocumentUrl,omitempty"`
-	FinalUrl           string                    `json:"finalUrl,omitempty"`
+	FinalURL           string                    `json:"finalUrl,omitempty"`
 	LighthouseVersion  string                    `json:"lighthouseVersion,omitempty"`
 	UserAgent          string                    `json:"userAgent,omitempty"`
 	FetchTime          string                    `json:"fetchTime,omitempty"`

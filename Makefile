@@ -36,7 +36,7 @@ NC := \033[0m # No Color
 
 dev: ## Build and run in development mode
 	@echo "$(BLUE)Building $(APP_NAME) for development...$(NC)"
-	go run $(MAIN_PACKAGE)
+	go run $(MAIN_PACKAGE) ${ARGS}
 
 build: clean ## Build binary for current platform
 	@echo "$(BLUE)Building $(APP_NAME) v$(VERSION)...$(NC)"
@@ -166,23 +166,19 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(YELLOW)Development:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; /^## Development/,/^## [^D]/ {if($$1 !~ /^##/) print "  " $$1 ":" substr($$0, index($$0,$$2))}' | \
-		grep -v "^## " | head -4
+		awk -F ':.*?## ' '/^dev:|^build:|^install:/ {print "  " $$1 ": " $$2}' | sort
 	@echo ""
 	@echo "$(YELLOW)Testing & Quality:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; /^## Testing/,/^## [^T]/ {if($$1 !~ /^##/) print "  " $$1 ":" substr($$0, index($$0,$$2))}' | \
-		grep -v "^## " | head -7
+		awk -F ':.*?## ' '/^test:|^test-coverage:|^lint:|^fmt:|^vet:|^mod-tidy:/ {print "  " $$1 ": " $$2}' | sort
 	@echo ""
 	@echo "$(YELLOW)Release & Distribution:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; /^## Release/,/^## [^R]/ {if($$1 !~ /^##/) print "  " $$1 ":" substr($$0, index($$0,$$2))}' | \
-		grep -v "^## " | head -4
+		awk -F ':.*?## ' '/^release:|^build-all:|^checksums:/ {print "  " $$1 ": " $$2}' | sort
 	@echo ""
 	@echo "$(YELLOW)Utilities:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; /^## Utility/,/^## [^U]/ {if($$1 !~ /^##/) print "  " $$1 ":" substr($$0, index($$0,$$2))}' | \
-		grep -v "^## " | head -6
+		awk -F ':.*?## ' '/^clean:|^deps:|^check-deps:|^info:|^docker-build:/ {print "  " $$1 ": " $$2}' | sort
 	@echo ""
 	@echo "$(YELLOW)Examples:$(NC)"
 	@echo "  make build          # Build for current platform"

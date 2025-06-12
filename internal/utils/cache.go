@@ -1,6 +1,7 @@
 package utils
 
 import (
+	// #nosec G501 -- MD5 used for non-security purposes (checksum)
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
@@ -43,7 +45,7 @@ func getCacheDir() (string, error) {
 	psiCacheDir := filepath.Join(cacheDir, "psi-map")
 
 	// Ensure directory exists
-	if err := os.MkdirAll(psiCacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(psiCacheDir, constants.DefaultDirPermissions); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %v", err)
 	}
 
@@ -58,6 +60,7 @@ func calculateSitemapHash(sitemapPath string) (string, error) {
 	}
 	defer file.Close()
 
+	// #nosec G401 -- MD5 used for non-security purposes (checksum)
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", fmt.Errorf("failed to calculate hash: %v", err)
@@ -69,13 +72,6 @@ func calculateSitemapHash(sitemapPath string) (string, error) {
 // getCacheFilename returns the cache filename for a given sitemap hash
 func getCacheFilename(cacheDir, hash string) string {
 	return filepath.Join(cacheDir, fmt.Sprintf("sitemap-hash-%s.json", hash))
-}
-
-// CachedData represents cached results with metadata
-type CachedData struct {
-	Timestamp  time.Time          `json:"timestamp"`
-	SitemapURL string             `json:"sitemap_url,omitempty"` // Optional: for human readability
-	Results    []types.PageResult `json:"results"`
 }
 
 // CheckCache checks if cached results exist and are still valid for the given sitemap
@@ -139,7 +135,7 @@ func SaveCache(sitemapPath string, results []types.PageResult) error {
 	}
 
 	// Create cached data structure
-	cachedData := CachedData{
+	cachedData := types.CachedData{
 		Timestamp:  time.Now(),
 		SitemapURL: sitemapPath, // Store for human readability
 		Results:    results,
@@ -164,7 +160,7 @@ func SaveCache(sitemapPath string, results []types.PageResult) error {
 }
 
 // loadCachedData loads CachedData from cache file with backward compatibility
-func loadCachedData(filename string) (*CachedData, error) {
+func loadCachedData(filename string) (*types.CachedData, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open cache file: %v", err)
@@ -178,7 +174,7 @@ func loadCachedData(filename string) (*CachedData, error) {
 	}
 
 	// Try to unmarshal as new format first
-	var cachedData CachedData
+	var cachedData types.CachedData
 	if err := json.Unmarshal(data, &cachedData); err == nil {
 		// Successfully parsed as new format
 		return &cachedData, nil
@@ -197,7 +193,7 @@ func loadCachedData(filename string) (*CachedData, error) {
 		return nil, fmt.Errorf("failed to get file info: %v", err)
 	}
 
-	cachedData = CachedData{
+	cachedData = types.CachedData{
 		Timestamp:  fileInfo.ModTime(),
 		SitemapURL: "unknown (legacy cache)", // We don't have this info in old format
 		Results:    results,
@@ -206,18 +202,8 @@ func loadCachedData(filename string) (*CachedData, error) {
 	return &cachedData, nil
 }
 
-// CacheInfo represents information about a cache file
-type CacheInfo struct {
-	Filename   string    `json:"filename"`
-	Hash       string    `json:"hash"`
-	SitemapURL string    `json:"sitemap_url"`
-	Timestamp  time.Time `json:"timestamp"`
-	Age        string    `json:"age"`
-	IsExpired  bool      `json:"is_expired"`
-}
-
 // ListCacheFiles returns detailed information about cached files
-func ListCacheFiles(ttlHours int) ([]CacheInfo, error) {
+func ListCacheFiles(ttlHours int) ([]types.CacheInfo, error) {
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return nil, err
@@ -228,41 +214,43 @@ func ListCacheFiles(ttlHours int) ([]CacheInfo, error) {
 		return nil, fmt.Errorf("failed to read cache directory: %v", err)
 	}
 
-	var cacheInfos []CacheInfo
+	cacheInfos := make([]types.CacheInfo, 0)
 	now := time.Now()
 
 	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
-			cacheFile := filepath.Join(cacheDir, entry.Name())
-
-			// Load cache data to get timestamp and sitemap info
-			cachedData, err := loadCachedData(cacheFile)
-			if err != nil {
-				// Skip corrupted cache files
-				continue
-			}
-
-			// Extract hash from filename (remove "sitemap-hash-" prefix and ".json" suffix)
-			filename := entry.Name()
-			hash := ""
-			if len(filename) > 13 && filename[:13] == "sitemap-hash-" {
-				hash = filename[13 : len(filename)-5] // Remove prefix and .json
-			}
-
-			age := now.Sub(cachedData.Timestamp)
-			isExpired := ttlHours > 0 && age > time.Duration(ttlHours)*time.Hour
-
-			cacheInfo := CacheInfo{
-				Filename:   filename,
-				Hash:       hash,
-				SitemapURL: cachedData.SitemapURL,
-				Timestamp:  cachedData.Timestamp,
-				Age:        formatDuration(age),
-				IsExpired:  isExpired,
-			}
-
-			cacheInfos = append(cacheInfos, cacheInfo)
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
 		}
+
+		cacheFile := filepath.Join(cacheDir, entry.Name())
+
+		// Load cache data to get timestamp and sitemap info
+		cachedData, err := loadCachedData(cacheFile)
+		if err != nil {
+			// Skip corrupted cache files
+			continue
+		}
+
+		// Extract hash from filename (remove "sitemap-hash-" prefix and ".json" suffix)
+		filename := entry.Name()
+		hash := ""
+		if len(filename) > 13 && filename[:13] == "sitemap-hash-" {
+			hash = filename[13 : len(filename)-5] // Remove prefix and .json
+		}
+
+		age := now.Sub(cachedData.Timestamp)
+		isExpired := ttlHours > 0 && age > time.Duration(ttlHours)*time.Hour
+
+		cacheInfo := types.CacheInfo{
+			Filename:   filename,
+			Hash:       hash,
+			SitemapURL: cachedData.SitemapURL,
+			Timestamp:  cachedData.Timestamp,
+			Age:        formatDuration(age),
+			IsExpired:  isExpired,
+		}
+
+		cacheInfos = append(cacheInfos, cacheInfo)
 	}
 
 	return cacheInfos, nil
@@ -270,12 +258,13 @@ func ListCacheFiles(ttlHours int) ([]CacheInfo, error) {
 
 // formatDuration formats a duration in a human-readable way
 func formatDuration(d time.Duration) string {
-	if d < time.Hour {
+	switch {
+	case d < time.Hour:
 		return fmt.Sprintf("%.0fm", d.Minutes())
-	} else if d < 24*time.Hour {
+	case d < 24*time.Hour:
 		return fmt.Sprintf("%.1fh", d.Hours())
-	} else {
-		return fmt.Sprintf("%.1fd", d.Hours()/24)
+	default:
+		return fmt.Sprintf("%.1fd", d.Hours()/constants.Day24H)
 	}
 }
 
