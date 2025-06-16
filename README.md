@@ -2,11 +2,11 @@
 
 ![Go Version](https://img.shields.io/github/go-mod/go-version/mattjh1/psi-map)
 ![Build](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml/badge.svg)
-![Release](https://github.com/yourusername/psi-map/actions/workflows/release.yml/badge.svg)
+![Release](https://github.com/mattjh1/psi-map/actions/workflows/release.yml/badge.svg)
 ![Docker Build](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml/badge.svg)
 ![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)
 ![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)
-![License](https://img.shields.io/github/license/yourusername/psi-map.svg)
+![License](https://img.shields.io/github/license/mattjh1/psi-map.svg)
 
 A command-line tool for batch PageSpeed Insights analysis using sitemap.xml files.
 
@@ -27,7 +27,7 @@ Download the latest binary from the [releases page](https://github.com/mattjh1/p
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/psi-map.git
+git clone https://github.com/mattjh1/psi-map.git
 cd psi-map
 make install
 ```

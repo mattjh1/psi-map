@@ -1,57 +1,371 @@
 {{define "modal-functions"}}
-function showDetails(index) {
-    const result = resultsData[Math.floor(index / 2)];
-    const strategy = index % 2 === 0 ? 'Mobile' : 'Desktop';
-    const strategyData = index % 2 === 0 ? result.Mobile : result.Desktop;
-    
-    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
-    const modalBody = document.getElementById('modalBody');
-    
-    modalBody.innerHTML = generateDetailHTML(result, strategy, strategyData);
-    modal.show();
-}
+  const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
 
-function generateDetailHTML(result, strategy, strategyData) {
-    let html = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6><i class="fas fa-link me-2"></i>URL Details</h6>
-                <p><strong>URL:</strong> ${result.URL}</p>
-                <p><strong>Strategy:</strong> <span class="badge ${strategy === 'Mobile' ? 'badge-info' : 'badge-secondary'}">${strategy.toLowerCase()}</span></p>
-                <p><strong>Load Time:</strong> ${strategyData.Elapsed || 'N/A'}</p>
-            </div>
-            <div class="col-md-6">
-                <h6><i class="fas fa-chart-bar me-2"></i>Scores</h6>
-    `;
-    
-    if (strategyData.Error) {
-        html += `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${strategyData.Error.Error}</div>`;
-    } else if (strategyData.Scores) {
-        html += `
-            <div class="row">
-                <div class="col-sm-6"><strong>Performance:</strong> ${Math.round(strategyData.Scores.Performance * 100)}</div>
-                <div class="col-sm-6"><strong>Accessibility:</strong> ${Math.round(strategyData.Scores.Accessibility * 100)}</div>
-                <div class="col-sm-6"><strong>Best Practices:</strong> ${Math.round(strategyData.Scores.BestPractices * 100)}</div>
-                <div class="col-sm-6"><strong>SEO:</strong> ${Math.round(strategyData.Scores.SEO * 100)}</div>
-            </div>
-        `;
-    }
-    
-    html += '</div></div>';
-    
-    if (strategyData.Metrics) {
-        html += `
-            <hr>
-            <h6><i class="fas fa-tachometer-alt me-2"></i>Core Web Vitals</h6>
-            <div class="row">
-                <div class="col-md-3"><strong>FCP:</strong> ${strategyData.Metrics.FirstContentfulPaint || 'N/A'}</div>
-                <div class="col-md-3"><strong>LCP:</strong> ${strategyData.Metrics.LargestContentfulPaint || 'N/A'}</div>
-                <div class="col-md-3"><strong>CLS:</strong> ${strategyData.Metrics.CumulativeLayoutShift || 'N/A'}</div>
-                <div class="col-md-3"><strong>FID:</strong> ${strategyData.Metrics.FirstInputDelay || 'N/A'}</div>
-            </div>
-        `;
-    }
-    
-    return html;
-}
+  // Simple markdown parser for basic formatting
+  function parseMarkdown(text) {
+      if (!text) return '';
+      
+      return text
+          // Convert links: [text](url) -> <a href="url" target="_blank">text</a>
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-info">$1</a>')
+          // Convert bold: **text** -> <strong>text</strong>
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          // Convert italic: *text* -> <em>text</em>
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+          // Convert code: `code` -> <code>code</code>
+          .replace(/`([^`]+)`/g, '<code class="bg-secondary px-1 rounded">$1</code>');
+  }
+
+  function showDetails(data) {
+      // Ensure data has required properties with defaults
+      const safeData = {
+          url: data.url || '',
+          final_url: data.final_url || data.url || '',
+          strategy: data.strategy || 'N/A',
+          user_agent: data.user_agent || 'Not available',
+          elapsed: data.elapsed || 0,
+          scores: data.scores || {},
+          metrics: data.metrics || {},
+          opportunities: data.opportunities || []
+      };
+
+      const modalBody = document.getElementById('modalBody');
+      
+      modalBody.innerHTML = `
+          <!-- URL Header -->
+          <div class="mb-4 p-3" style="background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
+              <h6 class="mb-2"><i class="fas fa-link me-2"></i>URL Analysis</h6>
+              <p class="mb-1"><strong>Original URL:</strong> <code>${safeData.url}</code></p>
+              <p class="mb-0"><strong>Final URL:</strong> <code>${safeData.final_url}</code></p>
+          </div>
+
+          <!-- Tabs Navigation -->
+          <ul class="nav nav-tabs nav-tabs-dark mb-3" id="detailTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="scores-tab" data-bs-toggle="tab" data-bs-target="#scores" type="button" role="tab">
+                      <i class="fas fa-chart-bar me-2"></i>Scores
+                  </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="metrics-tab" data-bs-toggle="tab" data-bs-target="#metrics" type="button" role="tab">
+                      <i class="fas fa-stopwatch me-2"></i>Metrics
+                  </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="opportunities-tab" data-bs-toggle="tab" data-bs-target="#opportunities" type="button" role="tab">
+                      <i class="fas fa-lightbulb me-2"></i>Opportunities
+                      ${safeData.opportunities.length > 0 ? `<span class="badge badge-warning ms-1">${safeData.opportunities.length}</span>` : ''}
+                  </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="technical-tab" data-bs-toggle="tab" data-bs-target="#technical" type="button" role="tab">
+                      <i class="fas fa-cog me-2"></i>Technical
+                  </button>
+              </li>
+          </ul>
+
+          <!-- Tab Content -->
+          <div class="tab-content" id="detailTabContent">
+              <!-- Scores Tab -->
+              <div class="tab-pane fade show active" id="scores" role="tabpanel">
+                  <div class="row">
+                      ${Object.entries(safeData.scores).map(([key, value]) => `
+                          <div class="col-md-3 col-sm-6 mb-3">
+                              <div class="text-center p-3" style="background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
+                                  <div class="score-circle ${getScoreClass(value)}">
+                                      ${value}
+                                  </div>
+                                  <h6 class="mb-0">${formatLabel(key)}</h6>
+                                  <small class="text-muted">${getScoreLabel(value)}</small>
+                              </div>
+                          </div>
+                      `).join('')}
+                  </div>
+                  
+                  <div class="mt-4">
+                      <h6><i class="fas fa-info-circle me-2"></i>Score Interpretation</h6>
+                      <div class="row">
+                          <div class="col-md-4">
+                              <div class="d-flex align-items-center mb-2">
+                                  <div class="score-circle score-excellent me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">90+</div>
+                                  <span>Excellent (90-100)</span>
+                              </div>
+                          </div>
+                          <div class="col-md-4">
+                              <div class="d-flex align-items-center mb-2">
+                                  <div class="score-circle score-good me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">50+</div>
+                                  <span>Good (50-89)</span>
+                              </div>
+                          </div>
+                          <div class="col-md-4">
+                              <div class="d-flex align-items-center mb-2">
+                                  <div class="score-circle score-poor me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">&lt;50</div>
+                                  <span>Needs Improvement (&lt;50)</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Metrics Tab -->
+              <div class="tab-pane fade" id="metrics" role="tabpanel">
+                  <div class="row">
+                      <div class="col-md-6">
+                          <h6><i class="fas fa-tachometer-alt me-2"></i>Core Web Vitals</h6>
+                          <div class="audit-item">
+                              ${[
+                                  { key: 'first_contentful_paint', label: 'First Contentful Paint (FCP)', threshold: 1800 },
+                                  { key: 'largest_contentful_paint', label: 'Largest Contentful Paint (LCP)', threshold: 2500 },
+                                  { key: 'first_input_delay', label: 'First Input Delay (FID)', threshold: 100 },
+                                  { key: 'cumulative_layout_shift', label: 'Cumulative Layout Shift (CLS)', threshold: 0.1 }
+                              ].map(metric => {
+                                  const value = safeData.metrics[metric.key];
+                                  if (value === undefined || value === null) {
+                                      return `
+                                          <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-secondary">
+                                              <div>
+                                                  <span class="fw-bold">${metric.label}</span>
+                                                  <br><small class="text-muted">Threshold: ${formatMetricThreshold(metric.threshold, metric.key)}</small>
+                                              </div>
+                                              <div class="text-end">
+                                                  <span class="badge badge-secondary">N/A</span>
+                                              </div>
+                                          </div>
+                                      `;
+                                  }
+                                  
+                                  const isGood = metric.key === 'cumulative_layout_shift' ? 
+                                      value <= metric.threshold : 
+                                      value <= metric.threshold;
+                                  return `
+                                      <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-secondary">
+                                          <div>
+                                              <span class="fw-bold">${metric.label}</span>
+                                              <br><small class="text-muted">Threshold: ${formatMetricThreshold(metric.threshold, metric.key)}</small>
+                                          </div>
+                                          <div class="text-end">
+                                              <span class="badge ${isGood ? 'badge-success' : 'badge-warning'}">${formatMetric(value, metric.key)}</span>
+                                          </div>
+                                      </div>
+                                  `;
+                              }).join('')}
+                          </div>
+                      </div>
+                      
+                      <div class="col-md-6">
+                          <h6><i class="fas fa-chart-line me-2"></i>Performance Metrics</h6>
+                          <div class="audit-item">
+                              ${Object.entries(safeData.metrics)
+                                  .filter(([key]) => !['first_contentful_paint', 'largest_contentful_paint', 'first_input_delay', 'cumulative_layout_shift'].includes(key))
+                                  .map(([key, value]) => `
+                                      <div class="d-flex justify-content-between align-items-center py-3 border-bottom border-secondary">
+                                          <span class="fw-bold">${formatLabel(key)}</span>
+                                          <span class="text-muted">${formatMetric(value, key)}</span>
+                                      </div>
+                                  `).join('')}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Opportunities Tab -->
+              <div class="tab-pane fade" id="opportunities" role="tabpanel">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                      <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Performance Optimization Opportunities</h6>
+                      ${safeData.opportunities.length > 0 ? `
+                          <div class="text-end">
+                              <small class="text-muted">${safeData.opportunities.length} opportunities found</small>
+                              <br><span class="badge badge-success">
+                                  ${safeData.opportunities.reduce((total, opp) => total + (opp.potentialSavings || 0), 0)}ms potential savings
+                              </span>
+                          </div>
+                      ` : ''}
+                  </div>
+                  
+                  <div style="max-height: 500px; overflow-y: auto;">
+                      ${safeData.opportunities.length > 0 ? safeData.opportunities.map((opp, index) => `
+                          <div class="opportunity-item impact-${(opp.impact || 'low').toLowerCase()} mb-3" 
+                               style="border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
+                              <div class="d-flex justify-content-between align-items-start mb-2">
+                                  <div class="flex-grow-1">
+                                      <div class="d-flex align-items-center mb-2">
+                                          <h6 class="mb-0 me-3">${opp.title || 'Optimization Opportunity'}</h6>
+                                          <span class="badge badge-${getImpactBadge(opp.impact)}">${opp.impact || 'Low'}</span>
+                                          ${opp.potentialSavings ? `<span class="badge badge-info ms-2">${opp.potentialSavings}ms saved</span>` : ''}
+                                      </div>
+                                  </div>
+                                  <div class="ms-3">
+                                      <i class="fas fa-${getImpactIcon(opp.impact)} text-${getImpactColor(opp.impact)}"></i>
+                                  </div>
+                              </div>
+                              <div class="opportunity-description">
+                                  ${parseMarkdown(opp.description || 'No description available')}
+                              </div>
+                              ${opp.id ? `<div class="mt-2"><small class="text-muted">ID: <code>${opp.id}</code></small></div>` : ''}
+                          </div>
+                      `).join('') : `
+                          <div class="text-center py-5">
+                              <i class="fas fa-check-circle text-success mb-3" style="font-size: 3rem;"></i>
+                              <h5>No optimization opportunities found!</h5>
+                              <p class="text-muted">Your site is performing well. Great job!</p>
+                          </div>
+                      `}
+                  </div>
+              </div>
+
+              <!-- Technical Tab -->
+              <div class="tab-pane fade" id="technical" role="tabpanel">
+                  <div class="row">
+                      <div class="col-md-6">
+                          <h6><i class="fas fa-server me-2"></i>Request Information</h6>
+                          <div class="audit-item">
+                              <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                                  <span>Strategy</span>
+                                  <span class="badge badge-info">${safeData.strategy}</span>
+                              </div>
+                              <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                                  <span>Elapsed Time</span>
+                                  <span class="text-muted">${formatMetric(safeData.elapsed)}</span>
+                              </div>
+                              <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                                  <span>DOM Size</span>
+                                  <span class="text-muted">${safeData.metrics.dom_size || 'N/A'} ${safeData.metrics.dom_size ? 'elements' : ''}</span>
+                              </div>
+                              <div class="d-flex justify-content-between py-2">
+                                  <span>Resources</span>
+                                  <span class="text-muted">${safeData.metrics.resource_count || 'N/A'} ${safeData.metrics.resource_count ? 'requests' : ''}</span>
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <div class="col-md-6">
+                          <h6><i class="fas fa-globe me-2"></i>Transfer Information</h6>
+                          <div class="audit-item">
+                              <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                                  <span>Transfer Size</span>
+                                  <span class="text-muted">${formatBytes(safeData.metrics.transfer_size)}</span>
+                              </div>
+                              <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                                  <span>Total Blocking Time</span>
+                                  <span class="text-muted">${formatMetric(safeData.metrics.total_blocking_time)}</span>
+                              </div>
+                          </div>
+                          
+                          <h6 class="mt-4"><i class="fas fa-user-agent me-2"></i>User Agent</h6>
+                          <div class="p-3" style="background: rgba(255, 255, 255, 0.05); border-radius: 10px;">
+                              <small class="text-muted">${safeData.user_agent}</small>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `;
+      
+      detailModal.show();
+  }
+
+  function showDetailsFromButton(button) {
+      try {
+          const rawData = button.getAttribute('data-page-data');
+          const resultData = JSON.parse(rawData);
+          const url = button.getAttribute('data-url');
+          const strategy = button.getAttribute('data-strategy');
+          
+          const detailsData = {
+              url: url,
+              final_url: resultData.final_url,
+              strategy: strategy,
+              user_agent: resultData.user_agent,
+              elapsed: resultData.elapsed,
+              scores: resultData.scores,
+              metrics: resultData.metrics,
+              opportunities: resultData.opportunities || [] // This should now work correctly
+          };
+          
+          showDetails(detailsData);
+      } catch (error) {
+          console.error('Error parsing button data:', error);
+          console.log('Button data:', button.getAttribute('data-page-data'));
+      }
+  }
+
+  function getScoreClass(score) {
+      if (score >= 90) return 'score-excellent';
+      if (score >= 50) return 'score-good';
+      return 'score-poor';
+  }
+
+  function getScoreLabel(score) {
+      if (score >= 90) return 'Excellent';
+      if (score >= 50) return 'Good';
+      return 'Needs Improvement';
+  }
+
+  function getImpactBadge(impact) {
+      if (!impact) return 'secondary';
+      switch(impact.toLowerCase()) {
+          case 'high': return 'danger';
+          case 'medium': return 'warning';
+          case 'low': return 'success';
+          default: return 'secondary';
+      }
+  }
+
+  function getImpactIcon(impact) {
+      if (!impact) return 'info-circle';
+      switch(impact.toLowerCase()) {
+          case 'high': return 'exclamation-triangle';
+          case 'medium': return 'exclamation-circle';
+          case 'low': return 'check-circle';
+          default: return 'info-circle';
+      }
+  }
+
+  function getImpactColor(impact) {
+      if (!impact) return 'info';
+      switch(impact.toLowerCase()) {
+          case 'high': return 'danger';
+          case 'medium': return 'warning';
+          case 'low': return 'success';
+          default: return 'info';
+      }
+  }
+
+  function formatLabel(key) {
+      return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  function formatMetric(value, key = '') {
+      if (value === null || value === undefined) return 'N/A';
+      
+      if (key === 'cumulative_layout_shift') {
+          return value.toFixed(3);
+      }
+      
+      if (typeof value === 'number') {
+          if (value > 1000) {
+              return (value / 1000).toFixed(2) + 's';
+          }
+          return Math.round(value) + 'ms';
+      }
+      return value.toString();
+  }
+
+  function formatMetricThreshold(value, key) {
+      if (key === 'cumulative_layout_shift') {
+          return value.toFixed(1);
+      }
+      if (value > 1000) {
+          return (value / 1000).toFixed(1) + 's';
+      }
+      return value + 'ms';
+  }
+
+  function formatBytes(bytes) {
+      if (bytes === 0 || bytes === null || bytes === undefined) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
 {{end}}

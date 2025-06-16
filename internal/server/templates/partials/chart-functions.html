@@ -10,6 +10,7 @@ function initializeCharts() {
     
     console.log('Chart.js is available');
     
+    
     try {
         initializeDistributionChart(summaryData);
         console.log('Distribution chart initialized');
@@ -105,6 +106,14 @@ function getChartOptions(stacked = false) {
     const baseOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+            padding: {
+                top: 10,
+                bottom: 24,
+                left: 10,
+                right: 10
+            }
+        },
         plugins: {
             legend: {
                 labels: { color: '#fff' },
