@@ -1,10 +1,10 @@
 {{template "layout" .}}
 
 {{define "content"}}
-<div class="dashboard-container">
+<div class="dashboard-container max-w-7xl mx-auto p-6">
     {{template "header" .}}
     
-    <div class="container-fluid p-4">
+    <div class="space-y-6">
         {{template "summary-cards" .}}
         {{template "charts-section" .}}
         {{template "filters-section" .}}
@@ -13,5 +13,4 @@
 </div>
 
 {{template "detail-modal" .}}
-{{template "scripts" .}}
 {{end}}

@@ -1,74 +1,10 @@
 {{define "scripts"}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-
 <!-- Load Chart.js first -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-
-<script>
-    console.log('=== SCRIPT START ===');
-    console.log('JavaScript is loading...');
-    console.log('Chart.js available immediately:', typeof Chart !== 'undefined');
-    
-    // Store results data
-    const resultsData = JSON.parse({{ toSafeJSON .Results }});
-    const summaryData = JSON.parse({{ toSafeJSON .Summary }});
-    
-    console.log('Data loaded:', { resultsData, summaryData });
-    
-    // Include all template functions first
-    {{template "chart-functions" .}}
-    {{template "filter-functions" .}}
-    {{template "modal-functions" .}}
-    
-    console.log('Functions after template inclusion:', {
-        initializeCharts: typeof initializeCharts,
-        initializeDistributionChart: typeof initializeDistributionChart,
-        initializeAverageScoresChart: typeof initializeAverageScoresChart
-    });
-    
-    // Initialize everything
-    function initializeAll() {
-        console.log('=== INITIALIZE ALL CALLED ===');
-        console.log('Chart.js available:', typeof Chart !== 'undefined');
-        
-        if (typeof Chart === 'undefined') {
-            console.error('Chart.js is still not available!');
-            return;
-        }
-        
-        if (typeof initializeCharts === 'function') {
-            console.log('Calling initializeCharts...');
-            initializeCharts();
-        } else {
-            console.error('initializeCharts function not found');
-        }
-        
-        if (typeof initializeFilters === 'function') {
-            initializeFilters();
-        }
-        
-        if (typeof initializeSearch === 'function') {
-            initializeSearch();
-        }
-    }
-    
-    // Initialize immediately if Chart.js is available, otherwise wait for DOM
-    if (typeof Chart !== 'undefined') {
-        console.log('Chart.js is available, initializing immediately...');
-        initializeAll();
-    } else {
-        console.log('Chart.js not available yet, waiting for DOM...');
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, Chart.js available:', typeof Chart !== 'undefined');
-            if (typeof Chart !== 'undefined') {
-                initializeAll();
-            } else {
-                console.error('Chart.js still not available after DOM load');
-            }
-        });
-    }
-    
-    console.log('=== SCRIPT END ===');
-</script>
-
+<!-- Load static JavaScript files -->
+<script src="/static/js/chart-functions.js"></script>
+<script src="/static/js/filter-functions.js"></script>
+<script src="/static/js/modal-functions.js"></script>
+<script src="/static/js/results-functions.js"></script>
+<script src="/static/js/main.js"></script>
 {{end}}

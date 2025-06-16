@@ -26,8 +26,23 @@ func loadReportTemplateFromFS() (*template.Template, error) {
 		"toSafeJSON":     toSafeJSON,
 		"add":            func(a, b int) int { return a + b },
 		"mul":            func(a, b int) int { return a * b },
-		"dict":           dict,
-		"getResult":      getResult,
+		"div":            func(a, b int) int { return a / b },
+		"float64":        func(i int) float64 { return float64(i) },
+		"printf":         fmt.Sprintf,
+		"percentage": func(part, total int) string {
+			if total == 0 {
+				return "0.0%"
+			}
+			return fmt.Sprintf("%.1f%%", float64(part)/float64(total)*constants.ScoreMultiplier)
+		},
+		"successRate": func(successful, total int) string {
+			if total == 0 {
+				return "0.0%"
+			}
+			return fmt.Sprintf("%.1f%%", float64(successful)/float64(total)*constants.ScoreMultiplier)
+		},
+		"dict":      dict,
+		"getResult": getResult,
 	}).ParseFS(templateFS, "templates/report.html", "templates/layout.html", "templates/partials/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %v", err)
@@ -54,24 +69,24 @@ func formatScore(score float64) string {
 func getGradeClass(grade string) string {
 	switch grade {
 	case "good":
-		return "badge-success"
+		return "bg-green-300 text-green-800 border-green-400"
 	case "needs-improvement":
-		return "badge-warning"
+		return "bg-yellow-300 text-yellow-800 border-yellow-400"
 	case "poor":
-		return "badge-danger"
+		return "bg-red-300 text-red-800 border-red-400"
 	default:
-		return "badge-secondary"
+		return "bg-gray-300 text-gray-800 border-gray-400"
 	}
 }
 
 func getScoreClass(score float64) string {
 	switch {
 	case score >= constants.ScoreGoodThreshold:
-		return "text-success"
+		return "text-green-700"
 	case score >= constants.ScorePoorThreshold:
-		return "text-warning"
+		return "text-yellow-700"
 	default:
-		return "text-danger"
+		return "text-red-700"
 	}
 }
 

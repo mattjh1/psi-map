@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -44,6 +46,7 @@ func Start(results []types.PageResult, port string) error {
 	mux.HandleFunc("/", s.handleReport)
 	mux.HandleFunc("/api/results", s.handleAPIResults)
 	mux.HandleFunc("/api/results/", s.handleAPIResult)
+	mux.HandleFunc("/api/report-data", s.handleReportData)
 	mux.HandleFunc("/static/", s.handleStatic)
 
 	s.server = &http.Server{
@@ -128,11 +131,55 @@ func (s *Server) handleAPIResult(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleStatic serves static CSS/JS (embedded in template for simplicity)
+// handleStatic serves static CSS and JS files with correct MIME types
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
-	// For now, we'll embed CSS/JS in the HTML template
-	// In a more complex setup, you'd serve actual static files here
-	http.NotFound(w, r)
+	// Create a file server for the static directory
+	fs := http.FileServer(http.Dir("internal/server/static"))
+
+	// Strip the /static/ prefix
+	path := r.URL.Path
+	if len(path) >= len("/static/") {
+		path = path[len("/static/"):]
+	}
+
+	// Set the correct MIME type based on file extension
+	ext := filepath.Ext(path)
+	mimeType := mime.TypeByExtension(ext)
+	if mimeType == "" {
+		// Fallback MIME types
+		switch ext {
+		case ".css":
+			mimeType = "text/css"
+		case ".js":
+			mimeType = "application/javascript"
+		default:
+			mimeType = "application/octet-stream"
+		}
+	}
+
+	// Set headers
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Cache-Control", "max-age=31536000") // Cache for 1 year
+
+	// Serve the file with stripped prefix
+	http.StripPrefix("/static/", fs).ServeHTTP(w, r)
+}
+
+// handleReportData serves Results and Summary as JSON
+func (s *Server) handleReportData(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Results []types.PageResult  `json:"results"`
+		Summary types.ReportSummary `json:"summary"`
+	}{
+		Results: s.results,
+		Summary: s.generateSummary(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, fmt.Sprintf("Error encoding JSON: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 // findAvailablePort finds an available port starting from the given port

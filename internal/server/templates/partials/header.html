@@ -1,9 +1,43 @@
 {{define "header"}}
-<div class="header-section">
-    <h1 class="display-4 mb-3">
-        <i class="fas fa-tachometer-alt me-3"></i>
-        PageSpeed Insights Report
-    </h1>
-    <p class="lead mb-0">Generated on {{.Generated.Format "January 2, 2006 at 3:04 PM"}}</p>
+<div class="relative overflow-hidden">
+    <!-- Background Gradient -->
+    <div class="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20"></div>
+    <!-- Background Pattern -->
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22rgba(255,255,255,0.03)%22%20fill-rule%3D%22evenodd%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%222%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-40"></div>
+    
+    <div class="relative px-6 py-16 sm:px-8 lg:px-12 z-10">
+        <div class="mx-auto max-w-7xl">
+            <!-- Header Content -->
+            <div class="text-center space-y-6">
+                <!-- Icon with animated background -->
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl glass-effect animate-bounce-subtle">
+                    <i class="fas fa-tachometer-alt text-3xl text-primary-500"></i>
+                </div>
+                
+                <!-- Title -->
+                <div class="space-y-3">
+                    <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                        <span class="bg-gradient-to-r from-primary-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                            PageSpeed Insights
+                        </span>
+                        <span class="block text-white/90">Report</span>
+                    </h1>
+                    
+                    <!-- Subtitle with timestamp -->
+                    <div class="flex items-center justify-center space-x-2 text-lg text-gray-300">
+                        <i class="fas fa-clock text-primary-500"></i>
+                        <span>Generated on {{.Generated.Format "January 2, 2006"}} at {{.Generated.Format "3:04 PM"}}</span>
+                    </div>
+                </div>
+                
+                <!-- Decorative elements -->
+                <div class="flex justify-center space-x-1 mt-8">
+                    <div class="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></div>
+                    <div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style="animation-delay: 0.2s;"></div>
+                    <div class="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" style="animation-delay: 0.4s;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {{end}}

@@ -1,15 +1,116 @@
 {{define "charts-section"}}
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="chart-container">
-            <h5 class="mb-3">Score Distribution</h5>
-            <canvas id="scoreDistributionChart"></canvas>
+<div class="px-6 py-8 sm:px-8 lg:px-12">
+    <div class="mx-auto max-w-7xl">
+        <!-- Section Header -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-white mb-2">Analytics Overview</h2>
+            <p class="text-white/60">Visual insights into your website performance metrics</p>
         </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="chart-container">
-            <h5 class="mb-3">Average Scores by Category</h5>
-            <canvas id="averageScoresChart"></canvas>
+        
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Score Distribution Chart -->
+            <div class="group relative overflow-hidden rounded-2xl glass-card p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10 animate-fade-in">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <!-- Chart Header -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400">
+                                <i class="fas fa-chart-bar text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-white">Score Distribution</h3>
+                                <p class="text-sm text-white/60">Performance score breakdown</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                            <div class="w-2 h-2 bg-purple-400 rounded-full"></div>
+                            <div class="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Container -->
+                    <div class="relative">
+                        <div class="chart-container rounded-xl glass-effect p-4" style="position: relative; height: 380px; width: 100%;">
+                            <canvas id="scoreDistributionChart" style="display: block; width: 100%; height: 100%;"></canvas>
+                        </div>
+                        <!-- Loading State -->
+                        <div class="absolute inset-0 flex items-center justify-center bg-white/5 rounded-xl backdrop-blur-sm" id="scoreChart-loading">
+                            <div class="flex items-center space-x-2 text-white/60">
+                                <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span class="text-sm">Loading chart...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Average Scores Chart -->
+            <div class="group relative overflow-hidden rounded-2xl glass-card p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 animate-fade-in" style="animation-delay: 0.2s;">
+                <div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div class="relative">
+                    <!-- Chart Header -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400">
+                                <i class="fas fa-chart-pie text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-white">Average Scores by Category</h3>
+                                <p class="text-sm text-white/60">Performance across all metrics</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Container -->
+                    <div class="relative">
+                        <div class="chart-container rounded-xl glass-effect p-4" style="position: relative; height: 350px; width: 100%;">
+                            <canvas id="averageScoresChart" style="display: block; width: 100%; height: 100%;"></canvas>
+                        </div>
+                        <!-- Loading State -->
+                        <div class="absolute inset-0 flex items-center justify-center bg-white/5 rounded-xl backdrop-blur-sm" id="avgChart-loading">
+                            <div class="flex items-center space-x-2 text-white/60">
+                                <div class="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span class="text-sm">Loading chart...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chart Legend/Info -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="flex items-center space-x-3 p-4 rounded-xl glass-effect">
+                <div class="w-3 h-3 bg-emerald-400 rounded-full"></div>
+                <div>
+                    <p class="text-sm font-medium text-white">Excellent</p>
+                    <p class="text-xs text-white/60">90-100 score</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 p-4 rounded-xl glass-effect">
+                <div class="w-3 h-3 bg-amber-400 rounded-full"></div>
+                <div>
+                    <p class="text-sm font-medium text-white">Good</p>
+                    <p class="text-xs text-white/60">50-89 score</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 p-4 rounded-xl glass-effect">
+                <div class="w-3 h-3 bg-red-400 rounded-full"></div>
+                <div>
+                    <p class="text-sm font-medium text-white">Needs Work</p>
+                    <p class="text-xs text-white/60">0-49 score</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 p-4 rounded-xl glass-effect">
+                <div class="w-3 h-3 bg-blue-400 rounded-full"></div>
+                <div>
+                    <p class="text-sm font-medium text-white">All Categories</p>
+                    <p class="text-xs text-white/60">Combined view</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>

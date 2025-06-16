@@ -1,27 +1,167 @@
 {{define "results-table"}}
-<div class="data-table">
-    <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0" id="resultsTable">
-            <thead>
-                <tr>
-                    <th>URL</th>
-                    <th>Strategy</th>
-                    <th>Performance</th>
-                    <th>Accessibility</th>
-                    <th>Best Practices</th>
-                    <th>SEO</th>
-                    <th>Load Time</th>
-                    <th>Core Web Vitals</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range $index, $page := .Results}}
-                    {{template "table-row" dict "Page" $page "Index" $index "Strategy" "mobile"}}
-                    {{template "table-row" dict "Page" $page "Index" $index "Strategy" "desktop"}}
-                {{end}}
-            </tbody>
-        </table>
+<div class="px-6 py-8 sm:px-8 lg:px-12">
+    <div class="mx-auto max-w-7xl">
+        <!-- Table Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-green-500/20 text-green-400">
+                    <i class="fas fa-table text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Detailed Results</h2>
+                    <p class="text-sm text-white/60">Complete analysis for all tested pages</p>
+                </div>
+            </div>
+            
+            <!-- Table Actions -->
+            <div class="flex items-center space-x-3">
+                <button class="flex items-center px-3 py-2 rounded-lg glass-effect text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
+                        onclick="exportResults()">
+                    <i class="fas fa-download mr-2"></i>
+                    <span class="hidden sm:inline">Export</span>
+                </button>
+                <button class="flex items-center px-3 py-2 rounded-lg glass-effect text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
+                        onclick="refreshResults()">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    <span class="hidden sm:inline">Refresh</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Table Container -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <!-- Table Stats Bar -->
+            <div class="px-6 py-4 border-b border-white/10 bg-white/5">
+                <div class="flex items-center justify-between text-sm">
+                    <div class="flex items-center space-x-6">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                            <span class="text-white/70">Total: <span class="text-white font-medium" id="totalCount">0</span></span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span class="text-white/70">Successful: <span class="text-green-400 font-medium" id="successCount">0</span></span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                            <span class="text-white/70">Failed: <span class="text-red-400 font-medium" id="failedCount">0</span></span>
+                        </div>
+                    </div>
+                    <div class="text-white/60">
+                        <span id="showingCount">Showing all results</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Responsive Table Container -->
+            <div class="overflow-x-auto">
+                <table class="w-full" id="resultsTable">
+                    <thead>
+                        <tr class="border-b border-white/10 bg-white/5">
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>URL</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('url')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>Strategy</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('strategy')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>Performance</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('performance')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>Accessibility</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('accessibility')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>Best Practices</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('best-practices')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>SEO</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('seo')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                <div class="flex items-center space-x-2">
+                                    <span>Load Time</span>
+                                    <i class="fas fa-sort text-white/40 cursor-pointer hover:text-white/60" onclick="sortTable('loadtime')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                Core Web Vitals
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/10">
+                        {{range $index, $page := .Results}}
+                            {{template "table-row" dict "Page" $page "Index" $index "Strategy" "mobile"}}
+                            {{template "table-row" dict "Page" $page "Index" $index "Strategy" "desktop"}}
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty State -->
+            <div class="hidden px-6 py-12 text-center" id="emptyState">
+                <div class="flex flex-col items-center space-y-4">
+                    <div class="flex items-center justify-center w-16 h-16 rounded-full bg-white/10">
+                        <i class="fas fa-search text-2xl text-white/40"></i>
+                    </div>
+                    <div class="space-y-2">
+                        <h3 class="text-lg font-medium text-white">No results found</h3>
+                        <p class="text-white/60">Try adjusting your search or filter criteria</p>
+                    </div>
+                    <button class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition-all duration-200"
+                            onclick="clearAllFilters()">
+                        Clear all filters
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="hidden px-6 py-12 text-center" id="loadingState">
+                <div class="flex flex-col items-center space-y-4">
+                    <div class="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-white/60">Loading results...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="mt-6 flex items-center justify-between">
+            <div class="text-sm text-white/60">
+                Showing <span class="font-medium text-white" id="pageStart">1</span> to <span class="font-medium text-white" id="pageEnd">10</span> of <span class="font-medium text-white" id="pageTotal">100</span> results
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="px-3 py-2 rounded-lg glass-effect text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        id="prevPage" onclick="changePage(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="flex items-center space-x-1" id="pageNumbers">
+                    <!-- Page numbers will be generated by JavaScript -->
+                </div>
+                <button class="px-3 py-2 rounded-lg glass-effect text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        id="nextPage" onclick="changePage(1)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 {{end}}

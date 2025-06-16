@@ -1,18 +1,18 @@
 {{define "score-cells"}}
 {{if .}}
-    <td class="{{getScoreClass .Performance}}">
-        <strong>{{formatScore .Performance}}</strong>
+    <td class="{{getScoreClass .Performance}} py-2 px-4 text-center">
+        <strong class="font-semibold">{{formatScore .Performance}}</strong>
     </td>
-    <td class="{{getScoreClass .Accessibility}}">
-        <strong>{{formatScore .Accessibility}}</strong>
+    <td class="{{getScoreClass .Accessibility}} py-2 px-4 text-center">
+        <strong class="font-semibold">{{formatScore .Accessibility}}</strong>
     </td>
-    <td class="{{getScoreClass .BestPractices}}">
-        <strong>{{formatScore .BestPractices}}</strong>
+    <td class="{{getScoreClass .BestPractices}} py-2 px-4 text-center">
+        <strong class="font-semibold">{{formatScore .BestPractices}}</strong>
     </td>
-    <td class="{{getScoreClass .SEO}}">
-        <strong>{{formatScore .SEO}}</strong>
+    <td class="{{getScoreClass .SEO}} py-2 px-4 text-center">
+        <strong class="font-semibold">{{formatScore .SEO}}</strong>
     </td>
 {{else}}
-    <td colspan="4" class="text-muted">No score data</td>
+    <td colspan="4" class="text-gray-400 py-2 px-4 text-center">No score data</td>
 {{end}}
 {{end}}

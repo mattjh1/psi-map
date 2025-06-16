@@ -1,21 +1,115 @@
 {{define "filters-section"}}
-<div class="filter-tabs">
-    <div class="row align-items-center">
-        <div class="col-md-6">
-            <ul class="nav nav-pills" id="strategyTabs">
-                <li class="nav-item">
-                    <a class="nav-link active" data-strategy="all">All Results</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-strategy="mobile">Mobile Only</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-strategy="desktop">Desktop Only</a>
-                </li>
-            </ul>
-        </div>
-        <div class="col-md-6">
-            <input type="text" class="form-control search-box text-white" id="searchInput" placeholder="Search URLs...">
+<div class="px-6 py-8 sm:px-8 lg:px-12">
+    <div class="mx-auto max-w-7xl">
+        <div class="glass-card rounded-2xl p-6">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0">
+                <!-- Strategy Filter Tabs -->
+                <div class="flex-1 lg:mr-8">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400">
+                            <i class="fas fa-filter text-sm"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white">Filter Results</h3>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2" id="strategyTabs">
+                        <button class="strategy-filter-btn active px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30" 
+                                data-strategy="all">
+                            <i class="fas fa-globe mr-2"></i>
+                            All Results
+                            <span class="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs" id="count-all">0</span>
+                        </button>
+                        <button class="strategy-filter-btn px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 bg-white/5 text-white/70 border border-white/20 hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-500/30" 
+                                data-strategy="mobile">
+                            <i class="fas fa-mobile-alt mr-2"></i>
+                            Mobile Only
+                            <span class="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs" id="count-mobile">0</span>
+                        </button>
+                        <button class="strategy-filter-btn px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 bg-white/5 text-white/70 border border-white/20 hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-500/30" 
+                                data-strategy="desktop">
+                            <i class="fas fa-desktop mr-2"></i>
+                            Desktop Only
+                            <span class="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs" id="count-desktop">0</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search Box -->
+                <div class="flex-1 lg:max-w-md">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-white/40"></i>
+                        </div>
+                        <input type="text" 
+                               class="w-full pl-10 pr-4 py-3 rounded-xl glass-effect text-white placeholder-white/50 border border-white/20 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200" 
+                               id="searchInput" 
+                               placeholder="Search URLs...">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <div class="text-xs text-white/40 bg-white/10 px-2 py-1 rounded-md">
+                                <kbd class="font-mono">Ctrl+K</kbd>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Search Results Counter -->
+                    <div class="mt-2 text-xs text-white/60 flex items-center justify-between">
+                        <span id="searchResults">Showing all results</span>
+                        <button class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden" id="clearSearch">
+                            <i class="fas fa-times mr-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters Toggle (Optional) -->
+            <div class="mt-6 pt-6 border-t border-white/10">
+                <button class="flex items-center space-x-2 text-sm text-white/60 hover:text-white/80 transition-colors duration-200" 
+                        onclick="toggleAdvancedFilters()">
+                    <i class="fas fa-cog"></i>
+                    <span>Advanced Filters</span>
+                    <i class="fas fa-chevron-down transform transition-transform duration-200" id="advancedToggleIcon"></i>
+                </button>
+                
+                <!-- Advanced Filters Panel (Hidden by default) -->
+                <div class="hidden mt-4 space-y-4" id="advancedFilters">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Performance Score Filter -->
+                        <div>
+                            <label class="block text-sm font-medium text-white/80 mb-2">Performance Score</label>
+                            <select class="w-full px-3 py-2 rounded-lg glass-effect text-white border border-white/20 focus:border-blue-500/50 focus:outline-none" 
+                                    id="performanceFilter">
+                                <option value="all">All Scores</option>
+                                <option value="excellent">Excellent (90+)</option>
+                                <option value="good">Good (50-89)</option>
+                                <option value="poor">Poor (0-49)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <div>
+                            <label class="block text-sm font-medium text-white/80 mb-2">Status</label>
+                            <select class="w-full px-3 py-2 rounded-lg glass-effect text-white border border-white/20 focus:border-blue-500/50 focus:outline-none" 
+                                    id="statusFilter">
+                                <option value="all">All Status</option>
+                                <option value="success">Successful</option>
+                                <option value="error">Failed</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Sort Options -->
+                        <div>
+                            <label class="block text-sm font-medium text-white/80 mb-2">Sort By</label>
+                            <select class="w-full px-3 py-2 rounded-lg glass-effect text-white border border-white/20 focus:border-blue-500/50 focus:outline-none" 
+                                    id="sortFilter">
+                                <option value="url">URL (A-Z)</option>
+                                <option value="performance">Performance Score</option>
+                                <option value="accessibility">Accessibility Score</option>
+                                <option value="loadtime">Load Time</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
