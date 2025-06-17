@@ -7,6 +7,9 @@ MAIN_PACKAGE := ./main.go
 DIST_DIR := dist
 COVERAGE_DIR := coverage
 
+GO_VERSION := 1.24
+export GO_VERSION
+
 # Version info - can be overridden in CI
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -145,7 +148,26 @@ docker-build: ## Build Docker image
 	docker build -t $(APP_NAME):$(VERSION) -t $(APP_NAME):latest .
 	@echo "$(GREEN)✓ Docker image built: $(APP_NAME):$(VERSION)$(NC)"
 
+docker-build: ## Build and push Docker image for CI
+	@echo "$(BLUE)Building and pushing Docker image...$(NC)"
+	@docker buildx create --use
+	@docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		-t ghcr.io/$(REPO):$(VERSION) \
+		-t ghcr.io/$(REPO):latest \
+		--push \
+		--cache-from=type=gha \
+		--cache-to=type=gha,mode=max \
+		.
+	@echo "$(GREEN)✓ Docker image pushed: ghcr.io/$(REPO):$(VERSION)$(NC)"
+
 ## CI/CD helpers
+
+ci-setup: deps check-deps ## Set up CI environment (dependencies and tools)
+	@echo "$(BLUE)Setting up CI environment...$(NC)"
+	@go mod download
+	@command -v golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "$(GREEN)✓ CI environment ready$(NC)"
 
 ci-test: deps test lint ## Run CI tests
 	@echo "$(GREEN)✓ CI tests completed$(NC)"
