@@ -69,9 +69,9 @@ func TestTemplateHelperFunctions(t *testing.T) {
 	})
 
 	t.Run("getScoreClass", func(t *testing.T) {
-		assert.Equal(t, "text-success", getScoreClass(95))
-		assert.Equal(t, "text-warning", getScoreClass(75))
-		assert.Equal(t, "text-danger", getScoreClass(45))
+		assert.Equal(t, "text-green-700", getScoreClass(95))
+		assert.Equal(t, "text-yellow-700", getScoreClass(75))
+		assert.Equal(t, "text-red-700", getScoreClass(45))
 	})
 
 	t.Run("formatBytes", func(t *testing.T) {
