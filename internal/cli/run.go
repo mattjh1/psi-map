@@ -22,7 +22,6 @@ func runAnalysis(c *cli.Context, forceServer bool) error {
 		MaxWorkers:  c.Int("workers"),
 		CacheTTL:    c.Int("cache-ttl"),
 	}
-
 	return executeAnalysis(config)
 }
 
@@ -30,20 +29,7 @@ func runAnalysis(c *cli.Context, forceServer bool) error {
 func executeAnalysis(config *types.AnalysisConfig) error {
 	start := time.Now()
 
-	results, found, err := utils.CheckCache(config.Sitemap, config.CacheTTL)
-	if err != nil {
-		fmt.Printf("cache check failed: %v", err)
-	}
-
-	if found {
-		fmt.Println("Using cached results for sitemap")
-		elapsed := time.Since(start)
-		return handleOutput(config, results, elapsed)
-	}
-
-	fmt.Printf("No cache found, starting analysis of: %s\n", config.Sitemap)
-
-	// Parse input to get URLs
+	// Parse input to get URLs first (needed for URL-level cache check)
 	urls, err := utils.ParseSitemap(config.Sitemap)
 	if err != nil {
 		return fmt.Errorf("failed to parse input: %w", err)
@@ -51,19 +37,78 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 
 	fmt.Printf("Found %d URLs to analyze\n", len(urls))
 
-	// Run analysis using the runner
-	results = runner.RunBatch(urls, config.MaxWorkers)
-	elapsed := time.Since(start)
-
-	if err := utils.SaveCache(config.Sitemap, results); err != nil {
-		fmt.Printf("Failed to save cache: %v", err)
-		fmt.Printf("Continuing...")
-	} else {
-		fmt.Println("[INFO] Results cached successfully")
+	// Check URL-level cache
+	cachedResults, missingURLs, err := utils.CheckURLCache(config.Sitemap, urls, config.CacheTTL)
+	if err != nil {
+		fmt.Printf("Cache check failed: %v\n", err)
+		// Continue with full analysis if cache check fails
+		missingURLs = urls
+		cachedResults = nil
 	}
 
+	// Report cache status
+	cachedCount := len(cachedResults)
+	missingCount := len(missingURLs)
+
+	if cachedCount > 0 {
+		fmt.Printf("Found %d cached result(s), %d URL(s) need analysis\n", cachedCount, missingCount)
+	} else {
+		fmt.Printf("No cached results found, analyzing all %d URLs\n", missingCount)
+	}
+
+	var newResults []types.PageResult
+
+	// Only analyze missing URLs
+	if missingCount > 0 {
+		fmt.Printf("Starting analysis of %d URL(s)...\n", missingCount)
+		newResults = runner.RunBatch(missingURLs, config.MaxWorkers)
+
+		// Save new results to cache
+		if err := utils.SaveURLCache(config.Sitemap, urls, newResults); err != nil {
+			fmt.Printf("Failed to save cache: %v\n", err)
+			fmt.Printf("Continuing...\n")
+		} else {
+			fmt.Printf("[INFO] %d new result(s) cached successfully\n", len(newResults))
+		}
+	}
+
+	// Combine cached and new results
+	allResults := combineResults(cachedResults, newResults)
+	elapsed := time.Since(start)
+
 	// Handle output based on configuration
-	return handleOutput(config, results, elapsed)
+	return handleOutput(config, allResults, elapsed)
+}
+
+// combineResults merges cached and new results, maintaining URL order from sitemap
+func combineResults(cached, new []types.PageResult) []types.PageResult {
+	if len(cached) == 0 {
+		return new
+	}
+	if len(new) == 0 {
+		return cached
+	}
+
+	// Create a map for quick lookup of all results by URL
+	resultMap := make(map[string]types.PageResult)
+
+	// Add cached results
+	for _, result := range cached {
+		resultMap[result.URL] = result
+	}
+
+	// Add new results (will overwrite any duplicates, though there shouldn't be any)
+	for _, result := range new {
+		resultMap[result.URL] = result
+	}
+
+	// Convert map back to slice
+	combined := make([]types.PageResult, 0, len(resultMap))
+	for _, result := range resultMap {
+		combined = append(combined, result)
+	}
+
+	return combined
 }
 
 // handleOutput processes the results based on the configuration

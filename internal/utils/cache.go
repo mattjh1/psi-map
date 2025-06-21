@@ -1,7 +1,6 @@
 package utils
 
 import (
-	// #nosec G501 -- MD5 used for non-security purposes (checksum)
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -9,16 +8,32 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
-// getCacheDir returns the appropriate cache directory for the OS
+// URLCacheEntry represents a cached result for a single URL
+type URLCacheEntry struct {
+	URL        string           `json:"url"`
+	Result     types.PageResult `json:"result"`
+	Timestamp  time.Time        `json:"timestamp"`
+	SitemapURL string           `json:"sitemap_url"`
+}
+
+// SitemapCacheIndex tracks which URLs belong to which sitemap
+type SitemapCacheIndex struct {
+	SitemapURL  string            `json:"sitemap_url"`
+	SitemapHash string            `json:"sitemap_hash"`
+	URLs        map[string]string `json:"urls"`
+	LastUpdated time.Time         `json:"last_updated"`
+}
+
 func getCacheDir() (string, error) {
 	var cacheDir string
-
 	switch runtime.GOOS {
 	case "windows":
 		cacheDir = os.Getenv("LOCALAPPDATA")
@@ -28,235 +43,490 @@ func getCacheDir() (string, error) {
 	case "darwin":
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get home directory: %v", err)
 		}
 		cacheDir = filepath.Join(homeDir, "Library", "Caches")
-	default: // linux and others
+	default:
 		cacheDir = os.Getenv("XDG_CACHE_HOME")
 		if cacheDir == "" {
 			homeDir, err := os.UserHomeDir()
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to get home directory: %v", err)
 			}
 			cacheDir = filepath.Join(homeDir, ".cache")
 		}
 	}
 
 	psiCacheDir := filepath.Join(cacheDir, "psi-map")
-
-	// Ensure directory exists
 	if err := os.MkdirAll(psiCacheDir, constants.DefaultDirPermissions); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %v", err)
 	}
-
 	return psiCacheDir, nil
 }
 
-// calculateSitemapHash calculates MD5 hash of sitemap content
-func calculateSitemapHash(sitemapPath string) (string, error) {
-	file, err := os.Open(sitemapPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open sitemap: %v", err)
-	}
-	defer file.Close()
-
-	// #nosec G401 -- MD5 used for non-security purposes (checksum)
+func calculateSitemapHash(sitemapPath string, urls []string) (string, error) {
 	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("failed to calculate hash: %v", err)
+	if sitemapPath != "" {
+		file, err := os.Open(sitemapPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to open sitemap: %v", err)
+		}
+		defer file.Close()
+		if _, err := io.Copy(hash, file); err != nil {
+			return "", fmt.Errorf("failed to calculate hash: %v", err)
+		}
+	} else {
+		for _, url := range urls {
+			hash.Write([]byte(url + "\n"))
+		}
 	}
-
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-// getCacheFilename returns the cache filename for a given sitemap hash
-func getCacheFilename(cacheDir, hash string) string {
-	return filepath.Join(cacheDir, fmt.Sprintf("sitemap-hash-%s.json", hash))
+func getURLCacheFilename(cacheDir, url string) string {
+	urlHash := fmt.Sprintf("%x", md5.Sum([]byte(url)))
+	return filepath.Join(cacheDir, "urls", fmt.Sprintf("url-%s.json", urlHash))
 }
 
-// CheckCache checks if cached results exist and are still valid for the given sitemap
-func CheckCache(sitemapPath string, ttlHours int) ([]types.PageResult, bool, error) {
-	// Calculate hash of current sitemap
-	hash, err := calculateSitemapHash(sitemapPath)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to calculate sitemap hash: %v", err)
-	}
+func getSitemapIndexFilename(cacheDir, sitemapHash string) string {
+	return filepath.Join(cacheDir, "indexes", fmt.Sprintf("sitemap-%s.json", sitemapHash))
+}
 
-	// Get cache directory
+func loadSitemapIndex(filename string) (*SitemapCacheIndex, bool) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, false
+	}
+	defer file.Close()
+
+	var index SitemapCacheIndex
+	if err := json.NewDecoder(file).Decode(&index); err != nil {
+		return nil, false
+	}
+	return &index, true
+}
+
+func saveSitemapIndex(filename string, index *SitemapCacheIndex) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create index file: %v", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(index)
+}
+
+func loadURLCacheEntry(filename string) (*URLCacheEntry, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var entry URLCacheEntry
+	if err := json.NewDecoder(file).Decode(&entry); err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
+func saveURLCacheEntry(filename string, entry *URLCacheEntry) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(entry)
+}
+
+func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]types.PageResult, []string, error) {
 	cacheDir, err := getCacheDir()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to get cache directory: %v", err)
+		return nil, urls, err
 	}
 
-	// Check if cache file exists
-	cacheFile := getCacheFilename(cacheDir, hash)
-	_, err = os.Stat(cacheFile)
-	if os.IsNotExist(err) {
-		return nil, false, nil // No cache found
+	urlsCacheDir := filepath.Join(cacheDir, "urls")
+	indexesCacheDir := filepath.Join(cacheDir, "indexes")
+	if err := os.MkdirAll(urlsCacheDir, constants.DefaultDirPermissions); err != nil {
+		return nil, urls, fmt.Errorf("failed to create URLs cache directory: %v", err)
 	}
+	if err := os.MkdirAll(indexesCacheDir, constants.DefaultDirPermissions); err != nil {
+		return nil, urls, fmt.Errorf("failed to create indexes cache directory: %v", err)
+	}
+
+	currentHash, err := calculateSitemapHash(sitemapPath, urls)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to stat cache file: %v", err)
+		return nil, urls, err
 	}
 
-	// Load cached data
-	cachedData, err := loadCachedData(cacheFile)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to load cached results: %v", err)
+	indexFile := getSitemapIndexFilename(cacheDir, currentHash)
+	index, indexExists := loadSitemapIndex(indexFile)
+	if !indexExists {
+		return nil, urls, nil
 	}
 
-	// Check TTL
-	if ttlHours > 0 {
-		expiryTime := cachedData.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
-		if time.Now().After(expiryTime) {
-			// Cache expired, remove the file
-			if err := os.Remove(cacheFile); err != nil {
-				// Log but don't fail - we'll just regenerate
-				fmt.Printf("Warning: failed to remove expired cache file: %v\n", err)
+	now := time.Now()
+	cached := make([]types.PageResult, 0)
+	missing := make([]string, 0)
+
+	for _, url := range urls {
+		cacheFilename, exists := index.URLs[url]
+		if !exists {
+			missing = append(missing, url)
+			continue
+		}
+
+		cacheFile := filepath.Join(cacheDir, "urls", cacheFilename)
+		entry, err := loadURLCacheEntry(cacheFile)
+		if err != nil {
+			missing = append(missing, url)
+			continue
+		}
+
+		if ttlHours > 0 {
+			expiryTime := entry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
+			if now.After(expiryTime) {
+				missing = append(missing, url)
+				os.Remove(cacheFile)
+				continue
 			}
-			return nil, false, nil // Cache expired
+		}
+		cached = append(cached, entry.Result)
+	}
+
+	return cached, missing, nil
+}
+
+func SaveURLCache(sitemapPath string, allURLs []string, newResults []types.PageResult) error {
+	cacheDir, err := getCacheDir()
+	if err != nil {
+		return err
+	}
+
+	sitemapHash, err := calculateSitemapHash(sitemapPath, allURLs)
+	if err != nil {
+		return err
+	}
+
+	indexFile := getSitemapIndexFilename(cacheDir, sitemapHash)
+	index, _ := loadSitemapIndex(indexFile)
+	if index == nil {
+		index = &SitemapCacheIndex{
+			SitemapURL:  sitemapPath,
+			SitemapHash: sitemapHash,
+			URLs:        make(map[string]string),
+			LastUpdated: time.Now(),
 		}
 	}
 
-	return cachedData.Results, true, nil
+	for _, result := range newResults {
+		entry := URLCacheEntry{
+			URL:        result.URL,
+			Result:     result,
+			Timestamp:  time.Now(),
+			SitemapURL: sitemapPath,
+		}
+
+		cacheFile := getURLCacheFilename(cacheDir, result.URL)
+		filename := filepath.Base(cacheFile)
+
+		if err := saveURLCacheEntry(cacheFile, &entry); err != nil {
+			return fmt.Errorf("failed to save cache entry for %s: %v", result.URL, err)
+		}
+		index.URLs[result.URL] = filename
+	}
+
+	index.LastUpdated = time.Now()
+	return saveSitemapIndex(indexFile, index)
 }
 
-// SaveCache saves results to cache with hash-based filename and timestamp
-func SaveCache(sitemapPath string, results []types.PageResult) error {
-	// Calculate hash of sitemap
-	hash, err := calculateSitemapHash(sitemapPath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate sitemap hash: %v", err)
-	}
-
-	// Get cache directory
-	cacheDir, err := getCacheDir()
-	if err != nil {
-		return fmt.Errorf("failed to get cache directory: %v", err)
-	}
-
-	// Create cached data structure
-	cachedData := types.CachedData{
-		Timestamp:  time.Now(),
-		SitemapURL: sitemapPath, // Store for human readability
-		Results:    results,
-	}
-
-	// Create cache file
-	cacheFile := getCacheFilename(cacheDir, hash)
-	file, err := os.Create(cacheFile)
-	if err != nil {
-		return fmt.Errorf("failed to create cache file: %v", err)
-	}
-	defer file.Close()
-
-	// Encode results to JSON
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(cachedData); err != nil {
-		return fmt.Errorf("failed to encode results: %v", err)
-	}
-
-	return nil
-}
-
-// loadCachedData loads CachedData from cache file with backward compatibility
-func loadCachedData(filename string) (*types.CachedData, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open cache file: %v", err)
-	}
-	defer file.Close()
-
-	// Read the entire file to detect format
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read cache file: %v", err)
-	}
-
-	// Try to unmarshal as new format first
-	var cachedData types.CachedData
-	if err := json.Unmarshal(data, &cachedData); err == nil {
-		// Successfully parsed as new format
-		return &cachedData, nil
-	}
-
-	// If that fails, try old format (direct array of PageResult)
-	var results []types.PageResult
-	if err := json.Unmarshal(data, &results); err != nil {
-		return nil, fmt.Errorf("failed to decode cache file in both old and new formats: %v", err)
-	}
-
-	// Convert old format to new format
-	// Use file modification time as timestamp for old cache files
-	fileInfo, err := os.Stat(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file info: %v", err)
-	}
-
-	cachedData = types.CachedData{
-		Timestamp:  fileInfo.ModTime(),
-		SitemapURL: "unknown (legacy cache)", // We don't have this info in old format
-		Results:    results,
-	}
-
-	return &cachedData, nil
-}
-
-// ListCacheFiles returns detailed information about cached files
-func ListCacheFiles(ttlHours int) ([]types.CacheInfo, error) {
+func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return nil, err
 	}
 
-	entries, err := os.ReadDir(cacheDir)
+	indexesDir := filepath.Join(cacheDir, "indexes")
+	entries, err := os.ReadDir(indexesDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cache directory: %v", err)
+		return []types.CacheInfo{}, nil
 	}
 
-	cacheInfos := make([]types.CacheInfo, 0)
+	var cacheInfos []types.CacheInfo
 	now := time.Now()
+	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
 
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "sitemap-") {
 			continue
 		}
 
-		cacheFile := filepath.Join(cacheDir, entry.Name())
-
-		// Load cache data to get timestamp and sitemap info
-		cachedData, err := loadCachedData(cacheFile)
-		if err != nil {
-			// Skip corrupted cache files
+		indexFile := filepath.Join(indexesDir, entry.Name())
+		index, exists := loadSitemapIndex(indexFile)
+		if !exists {
 			continue
 		}
-
-		// Extract hash from filename (remove "sitemap-hash-" prefix and ".json" suffix)
-		filename := entry.Name()
-		hash := ""
-		if len(filename) > 13 && filename[:13] == "sitemap-hash-" {
-			hash = filename[13 : len(filename)-5] // Remove prefix and .json
-		}
-
-		age := now.Sub(cachedData.Timestamp)
-		isExpired := ttlHours > 0 && age > time.Duration(ttlHours)*time.Hour
 
 		cacheInfo := types.CacheInfo{
-			Filename:   filename,
-			Hash:       hash,
-			SitemapURL: cachedData.SitemapURL,
-			Timestamp:  cachedData.Timestamp,
-			Age:        formatDuration(age),
-			IsExpired:  isExpired,
+			Filename:   entry.Name(),
+			Hash:       index.SitemapHash[:8],
+			FullHash:   index.SitemapHash,
+			SitemapURL: index.SitemapURL,
+			Timestamp:  index.LastUpdated,
+			URLCount:   len(index.URLs),
 		}
 
+		if verbose {
+			validCount, expiredCount, staleCount, totalSize, totalScore, avgScore := 0, 0, 0, int64(0), 0.0, 0.0
+			scoreCount := 0
+
+			for url := range index.URLs {
+				cacheFile := filepath.Join(cacheDir, "urls", index.URLs[url])
+				urlEntry, err := loadURLCacheEntry(cacheFile)
+				if err != nil {
+					expiredCount++
+					continue
+				}
+
+				if fileInfo, err := os.Stat(cacheFile); err == nil {
+					totalSize += fileInfo.Size()
+				}
+
+				if score := extractPerformanceScore(urlEntry.Result); score > 0 {
+					totalScore += score
+					scoreCount++
+				}
+
+				if ttlHours > 0 {
+					expiryTime := urlEntry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
+					if now.After(expiryTime) {
+						expiredCount++
+					} else if now.After(urlEntry.Timestamp.Add(stalePeriod)) {
+						staleCount++
+					} else {
+						validCount++
+					}
+				} else {
+					validCount++
+				}
+			}
+
+			if scoreCount > 0 {
+				avgScore = totalScore / float64(scoreCount)
+			}
+
+			cacheInfo.ValidCount = validCount
+			cacheInfo.ExpiredCount = expiredCount
+			cacheInfo.StaleCount = staleCount
+			cacheInfo.TotalSize = totalSize
+			cacheInfo.AvgScore = avgScore
+			cacheInfo.IsExpired = expiredCount > 0
+		}
+
+		cacheInfo.Age = formatDuration(now.Sub(index.LastUpdated))
 		cacheInfos = append(cacheInfos, cacheInfo)
 	}
 
 	return cacheInfos, nil
 }
 
-// formatDuration formats a duration in a human-readable way
+func CleanExpiredCacheFiles(ttlHours int, dryRun bool) (int, error) {
+	if ttlHours <= 0 {
+		return 0, fmt.Errorf("TTL must be positive")
+	}
+
+	cacheDir, err := getCacheDir()
+	if err != nil {
+		return 0, err
+	}
+
+	indexesDir := filepath.Join(cacheDir, "indexes")
+	entries, err := os.ReadDir(indexesDir)
+	if err != nil {
+		return 0, nil
+	}
+
+	cleaned := 0
+	now := time.Now()
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "sitemap-") {
+			continue
+		}
+
+		indexFile := filepath.Join(indexesDir, entry.Name())
+		index, exists := loadSitemapIndex(indexFile)
+		if !exists {
+			continue
+		}
+
+		updatedURLs := make(map[string]string)
+		urlsRemoved := 0
+
+		for url, filename := range index.URLs {
+			cacheFile := filepath.Join(cacheDir, "urls", filename)
+			urlEntry, err := loadURLCacheEntry(cacheFile)
+			if err != nil {
+				urlsRemoved++
+				continue
+			}
+
+			expiryTime := urlEntry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
+			if now.After(expiryTime) {
+				if !dryRun {
+					if err := os.Remove(cacheFile); err == nil {
+						urlsRemoved++
+					}
+				} else {
+					urlsRemoved++
+				}
+			} else {
+				updatedURLs[url] = filename
+			}
+		}
+
+		cleaned += urlsRemoved
+		if !dryRun && len(updatedURLs) != len(index.URLs) {
+			if len(updatedURLs) == 0 {
+				os.Remove(indexFile)
+			} else {
+				index.URLs = updatedURLs
+				index.LastUpdated = now
+				saveSitemapIndex(indexFile, index)
+			}
+		}
+	}
+
+	return cleaned, nil
+}
+
+func ClearAllCacheFiles() (int, error) {
+	cacheDir, err := getCacheDir()
+	if err != nil {
+		return 0, err
+	}
+
+	clearedCount := 0
+	urlsDir := filepath.Join(cacheDir, "urls")
+	indexesDir := filepath.Join(cacheDir, "indexes")
+
+	if urlEntries, err := os.ReadDir(urlsDir); err == nil {
+		for _, entry := range urlEntries {
+			if !entry.IsDir() && strings.HasPrefix(entry.Name(), "url-") && strings.HasSuffix(entry.Name(), ".json") {
+				if err := os.Remove(filepath.Join(urlsDir, entry.Name())); err == nil {
+					clearedCount++
+				}
+			}
+		}
+		os.RemoveAll(urlsDir)
+	}
+
+	if indexEntries, err := os.ReadDir(indexesDir); err == nil {
+		for _, entry := range indexEntries {
+			if !entry.IsDir() && strings.HasPrefix(entry.Name(), "sitemap-") && strings.HasSuffix(entry.Name(), ".json") {
+				if err := os.Remove(filepath.Join(indexesDir, entry.Name())); err == nil {
+					clearedCount++
+				}
+			}
+		}
+		os.RemoveAll(indexesDir)
+	}
+
+	return clearedCount, nil
+}
+
+func GetURLCacheDetails(sitemapHash string, ttlHours int) ([]types.URLCacheDetail, error) {
+	cacheDir, err := getCacheDir()
+	if err != nil {
+		return nil, err
+	}
+
+	indexFile := getSitemapIndexFilename(cacheDir, sitemapHash)
+	index, exists := loadSitemapIndex(indexFile)
+	if !exists {
+		return nil, fmt.Errorf("sitemap index not found")
+	}
+
+	var details []types.URLCacheDetail
+	now := time.Now()
+	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
+
+	for url, filename := range index.URLs {
+		cacheFile := filepath.Join(cacheDir, "urls", filename)
+		urlEntry, err := loadURLCacheEntry(cacheFile)
+		if err != nil {
+			continue
+		}
+
+		fileInfo, err := os.Stat(cacheFile)
+		cacheSize := int64(0)
+		if err == nil {
+			cacheSize = fileInfo.Size()
+		}
+
+		age := now.Sub(urlEntry.Timestamp)
+		isExpired := false
+		isStale := false
+
+		if ttlHours > 0 {
+			expiryTime := urlEntry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
+			isExpired = now.After(expiryTime)
+			if !isExpired {
+				isStale = now.After(urlEntry.Timestamp.Add(stalePeriod))
+			}
+		}
+
+		detail := types.URLCacheDetail{
+			URL:              url,
+			Age:              formatDuration(age),
+			IsExpired:        isExpired,
+			IsStale:          isStale,
+			PerformanceScore: extractPerformanceScore(urlEntry.Result),
+			CacheSize:        cacheSize,
+			Timestamp:        urlEntry.Timestamp,
+			HasErrors:        hasErrors(urlEntry.Result),
+		}
+		details = append(details, detail)
+	}
+
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].Timestamp.After(details[j].Timestamp)
+	})
+
+	return details, nil
+}
+
+func extractPerformanceScore(result types.PageResult) float64 {
+	if result.Mobile.Scores != nil && result.Mobile.Scores.Performance > 0 {
+		return result.Mobile.Scores.Performance
+	}
+	if result.Desktop.Scores != nil && result.Desktop.Scores.Performance > 0 {
+		return result.Desktop.Scores.Performance
+	}
+	return 0.0
+}
+
+func hasErrors(result types.PageResult) bool {
+	if result.Mobile.Error != nil || result.Desktop.Error != nil {
+		return true
+	}
+	if result.Mobile.Scores == nil && result.Desktop.Scores == nil {
+		return true
+	}
+	if result.Mobile.Scores != nil && result.Mobile.Scores.Performance < 50 {
+		return true
+	}
+	if result.Desktop.Scores != nil && result.Desktop.Scores.Performance < 50 {
+		return true
+	}
+	return false
+}
+
 func formatDuration(d time.Duration) string {
 	switch {
 	case d < time.Hour:
@@ -266,57 +536,4 @@ func formatDuration(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%.1fd", d.Hours()/constants.Day24H)
 	}
-}
-
-// CleanExpiredCache removes expired cache files
-func CleanExpiredCache(ttlHours int) (int, error) {
-	if ttlHours <= 0 {
-		return 0, fmt.Errorf("TTL must be positive")
-	}
-
-	cacheInfos, err := ListCacheFiles(ttlHours)
-	if err != nil {
-		return 0, err
-	}
-
-	cacheDir, err := getCacheDir()
-	if err != nil {
-		return 0, err
-	}
-
-	cleaned := 0
-	for _, info := range cacheInfos {
-		if info.IsExpired {
-			cacheFile := filepath.Join(cacheDir, info.Filename)
-			if err := os.Remove(cacheFile); err != nil {
-				return cleaned, fmt.Errorf("failed to remove expired cache file %s: %v", info.Filename, err)
-			}
-			cleaned++
-		}
-	}
-
-	return cleaned, nil
-}
-
-// ClearCache removes all cache files
-func ClearCache() error {
-	cacheDir, err := getCacheDir()
-	if err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(cacheDir)
-	if err != nil {
-		return fmt.Errorf("failed to read cache directory: %v", err)
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
-			if err := os.Remove(filepath.Join(cacheDir, entry.Name())); err != nil {
-				return fmt.Errorf("failed to remove cache file %s: %v", entry.Name(), err)
-			}
-		}
-	}
-
-	return nil
 }
