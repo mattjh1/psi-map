@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/server"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
@@ -27,6 +28,7 @@ func runAnalysis(c *cli.Context, forceServer bool) error {
 
 // executeAnalysis runs the analysis with the given configuration
 func executeAnalysis(config *types.AnalysisConfig) error {
+	log := logger.GetLogger()
 	start := time.Now()
 
 	// Parse input to get URLs first (needed for URL-level cache check)
@@ -35,12 +37,13 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 		return fmt.Errorf("failed to parse input: %w", err)
 	}
 
-	fmt.Printf("Found %d URLs to analyze\n", len(urls))
+	log.Info("Found %d URLs to analyze", len(urls))
 
 	// Check URL-level cache
 	cachedResults, missingURLs, err := utils.CheckURLCache(config.Sitemap, urls, config.CacheTTL)
 	if err != nil {
-		fmt.Printf("Cache check failed: %v\n", err)
+		log.Warn("Cache check failed: %v", err)
+		log.Info("Continuing with full analysis")
 		// Continue with full analysis if cache check fails
 		missingURLs = urls
 		cachedResults = nil
@@ -51,24 +54,24 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 	missingCount := len(missingURLs)
 
 	if cachedCount > 0 {
-		fmt.Printf("Found %d cached result(s), %d URL(s) need analysis\n", cachedCount, missingCount)
+		log.Tagged("CACHE", "Found %d cached result(s), %d URL(s) need analysis", "🎯", cachedCount, missingCount)
 	} else {
-		fmt.Printf("No cached results found, analyzing all %d URLs\n", missingCount)
+		log.Tagged("CACHE", "No cached results found, analyzing all %d URLs", "📊", missingCount)
 	}
 
 	var newResults []types.PageResult
 
 	// Only analyze missing URLs
 	if missingCount > 0 {
-		fmt.Printf("Starting analysis of %d URL(s)...\n", missingCount)
+		log.Tagged("ANALYZE", "Starting analysis of %d URL(s)...", "🔍", missingCount)
 		newResults = runner.RunBatch(missingURLs, config.MaxWorkers)
 
 		// Save new results to cache
 		if err := utils.SaveURLCache(config.Sitemap, urls, newResults); err != nil {
-			fmt.Printf("Failed to save cache: %v\n", err)
-			fmt.Printf("Continuing...\n")
+			log.Error("Failed to save cache: %v", err)
+			log.Info("Continuing...")
 		} else {
-			fmt.Printf("[INFO] %d new result(s) cached successfully\n", len(newResults))
+			log.Tagged("CACHE", "%d new result(s) cached successfully", "💾", len(newResults))
 		}
 	}
 
@@ -113,24 +116,26 @@ func combineResults(cached, new []types.PageResult) []types.PageResult {
 
 // handleOutput processes the results based on the configuration
 func handleOutput(config *types.AnalysisConfig, results []types.PageResult, elapsed time.Duration) error {
+	log := logger.GetLogger()
+
 	switch {
 	case config.StartServer:
 		if err := server.Start(results, config.ServerPort); err != nil {
 			return fmt.Errorf("failed to start server: %w", err)
 		}
 	case config.OutputHTML != "":
-		fmt.Printf("Generating HTML report: %s\n", config.OutputHTML)
+		log.Tagged("STEP", "Generating HTML report: %s", "📄", config.OutputHTML)
 		if err := utils.SaveHTMLReport(results, config.OutputHTML); err != nil {
 			return fmt.Errorf("failed to generate HTML report: %w", err)
 		}
-		fmt.Printf("HTML report saved: %s\n", config.OutputHTML)
+		log.Success("HTML report saved: %s", config.OutputHTML)
 		utils.PrintSummary(results, elapsed)
 	case config.OutputJSON != "":
-		fmt.Printf("Generating JSON report: %s\n", config.OutputJSON)
+		log.Tagged("STEP", "Generating JSON report: %s", "📋", config.OutputJSON)
 		if err := utils.SaveJSONReport(results, config.OutputJSON); err != nil {
 			return fmt.Errorf("failed to generate JSON report: %w", err)
 		}
-		fmt.Printf("JSON report saved: %s\n", config.OutputJSON)
+		log.Success("JSON report saved: %s", config.OutputJSON)
 		utils.PrintSummary(results, elapsed)
 	default:
 		// Just print summary to console
