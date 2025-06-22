@@ -219,7 +219,7 @@ func (l *Logger) Tagged(tag, message, emoji string, args ...any) {
 
 	// Output to alternative destination if specified
 	if l.Output != nil && l.Output != os.Stdout {
-		fmt.Fprintln(l.Output, fmt.Sprintf("[%s] %s", tag, formattedMsg))
+		fmt.Fprintf(l.Output, "[%s] %s\n", tag, formattedMsg)
 	}
 }
 
@@ -278,7 +278,10 @@ func (u *UI) Table(headers []string, data [][]string) {
 	if u.Style != nil && u.Style.TableBorderStyle != nil {
 		table = table.WithBoxed(true).WithStyle(u.Style.TableBorderStyle)
 	}
-	table.Render()
+	// table.Render()
+	if err := table.Render(); err != nil {
+		u.Logger.Error("Error rendering table: %v\n", err)
+	}
 }
 
 // RunSpinner runs a spinner for a task

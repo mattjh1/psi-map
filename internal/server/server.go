@@ -35,7 +35,7 @@ func Start(results []types.PageResult, port string) error {
 	// Find an available port if the default is taken
 	availablePort, err := findAvailablePort(port)
 	if err != nil {
-		return fmt.Errorf("failed to find available port: %v", err)
+		return fmt.Errorf("failed to find available port: %w", err)
 	}
 
 	s := &Server{

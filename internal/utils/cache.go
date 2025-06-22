@@ -1,6 +1,7 @@
 package utils
 
 import (
+	//nolint:gosec // MD5 used for cache key generation, not cryptography
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -115,19 +116,22 @@ func saveSitemapIndex(filename string, index *SitemapCacheIndex) error {
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(index)
+	if err := encoder.Encode(index); err != nil {
+		return fmt.Errorf("failed to encode sitemap index to %s: %w", filename, err)
+	}
+	return nil
 }
 
 func loadURLCacheEntry(filename string) (*URLCacheEntry, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load file from filesystem %s: %w", filename, err)
 	}
 	defer file.Close()
 
 	var entry URLCacheEntry
 	if err := json.NewDecoder(file).Decode(&entry); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load URL cache entry %s: %w", filename, err)
 	}
 	return &entry, nil
 }
@@ -135,13 +139,16 @@ func loadURLCacheEntry(filename string) (*URLCacheEntry, error) {
 func saveURLCacheEntry(filename string, entry *URLCacheEntry) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load file from filesystem %s: %w", filename, err)
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(entry)
+	if err := encoder.Encode(entry); err != nil {
+		return fmt.Errorf("failed to save URL to cache %s: %w", filename, err)
+	}
+	return nil
 }
 
 func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]types.PageResult, []string, error) {
@@ -257,7 +264,7 @@ func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 		return []types.CacheInfo{}, nil
 	}
 
-	var cacheInfos []types.CacheInfo
+	cacheInfos := make([]types.CacheInfo, 0, len(entries))
 	now := time.Now()
 	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
 
@@ -397,7 +404,9 @@ func CleanExpiredCacheFiles(ttlHours int, dryRun bool) (int, error) {
 			} else {
 				index.URLs = updatedURLs
 				index.LastUpdated = now
-				saveSitemapIndex(indexFile, index)
+				if err := saveSitemapIndex(indexFile, index); err != nil {
+					return -1, fmt.Errorf("warning: failed to save sitemap index: %w", err)
+				}
 			}
 		}
 	}
@@ -452,7 +461,7 @@ func GetURLCacheDetails(sitemapHash string, ttlHours int) ([]types.URLCacheDetai
 		return nil, fmt.Errorf("sitemap index not found")
 	}
 
-	var details []types.URLCacheDetail
+	details := make([]types.URLCacheDetail, 0, len(index.URLs))
 	now := time.Now()
 	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
 

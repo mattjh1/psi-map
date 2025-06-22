@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,12 +19,10 @@ import (
 var httpClient = &http.Client{}
 
 // FetchScore retrieves comprehensive performance data from the PSI API
-func FetchScore(pageURL, strategy string) types.Result {
+func FetchScoreImpl(ctx context.Context, pageURL, strategy string) types.Result {
 	start := time.Now()
-
 	apiKey := os.Getenv("PSI_API_KEY")
 	baseURL := "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
-
 	params := url.Values{}
 	params.Add("url", pageURL)
 	params.Add("strategy", strategy)
@@ -31,14 +30,24 @@ func FetchScore(pageURL, strategy string) types.Result {
 	params.Add("category", "accessibility")
 	params.Add("category", "best-practices")
 	params.Add("category", "seo")
-
 	if apiKey != "" {
 		params.Add("key", apiKey)
 	}
-
 	fullURL := baseURL + "?" + params.Encode()
 
-	resp, err := httpClient.Get(fullURL)
+	// Create request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, http.NoBody)
+	if err != nil {
+		return types.Result{
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("failed to create request: %w", err),
+			Elapsed:  time.Since(start),
+		}
+	}
+
+	// Use httpClient.Do instead of httpClient.Get
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return types.Result{
 			URL:      pageURL,
@@ -79,6 +88,17 @@ func FetchScore(pageURL, strategy string) types.Result {
 	}
 
 	return extractResultData(data, pageURL, strategy, time.Since(start))
+}
+
+// If you want to provide a convenience function without context for backward compatibility:
+func FetchScoreWithTimeout(pageURL, strategy string, timeout time.Duration) types.Result {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return FetchScoreImpl(ctx, pageURL, strategy)
+}
+
+func FetchScore(pageURL, strategy string) types.Result {
+	return FetchScoreWithTimeout(pageURL, strategy, constants.ReadHeaderTimeout)
 }
 
 // extractResultData processes the PSI response into our Result struct
@@ -255,19 +275,20 @@ func getResourceCount(audits map[string]*psi.Audit) int {
 
 	for _, auditKey := range resourceAudits {
 		if audit := audits[auditKey]; audit != nil && audit.Details != nil {
-			// This would need to be parsed based on the specific audit structure
-			// For now, return a placeholder
+			// TODO: Implement parsing for audit.Details
+			_ = audit // silence unused warning
 		}
 	}
 
 	return count
 }
 
+//lint:ignore unparam placeholder for future implementation
 func getTotalTransferSize(audits map[string]*psi.Audit) int64 {
 	if audit := audits["network-requests"]; audit != nil && audit.Details != nil {
 		// Parse network requests to sum transfer sizes
 		// This would need detailed parsing of the audit.Details structure
-		return 0
+		_ = audit
 	}
 	return 0
 }

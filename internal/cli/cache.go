@@ -70,7 +70,7 @@ func cacheListCommand(c *cli.Context) error {
 	cacheInfos, err := utils.ListCacheFiles(ttl, true) // Always get full details
 	if err != nil {
 		l.Error("Failed to list cache files: %v", err)
-		return err
+		return fmt.Errorf("failed to list cache files: %w", err)
 	}
 
 	if len(cacheInfos) == 0 {
@@ -174,7 +174,7 @@ func cacheCleanCommand(c *cli.Context) error {
 	cleanedCount, err := utils.CleanExpiredCacheFiles(ttl, dryRun)
 	if err != nil {
 		l.Error("Cache cleanup failed: %v", err)
-		return err
+		return fmt.Errorf("failed to clean expired cache files: %w", err)
 	}
 
 	if cleanedCount == 0 {
@@ -199,12 +199,16 @@ func cacheClearCommand(c *cli.Context) error {
 
 	force := c.Bool("force")
 	if !force {
-		confirm, err := u.Prompt("Are you sure you want to clear all cache data? This cannot be undone.", logger.ConfirmInput)
+		response, err := u.Prompt("Are you sure you want to clear all cache data? This cannot be undone.", logger.ConfirmInput)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to prompt for confirmation: %w", err)
 		}
-		if !confirm.(bool) {
-			l.Info("Cache clear cancelled")
+		confirmed, ok := response.(bool)
+		if !ok {
+			l.Error("unexpected type from confirmation prompt")
+		}
+		if !confirmed {
+			l.Info("Cache clear canceled")
 			return nil
 		}
 	}
@@ -214,7 +218,7 @@ func cacheClearCommand(c *cli.Context) error {
 	clearedCount, err := utils.ClearAllCacheFiles()
 	if err != nil {
 		l.Error("Failed to clear cache: %v", err)
-		return err
+		return fmt.Errorf("failed  to clear cache: %w", err)
 	}
 
 	if clearedCount == 0 {

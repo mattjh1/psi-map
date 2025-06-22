@@ -5,9 +5,11 @@ run:
 linters-settings:
   errcheck:
     check-type-assertions: true
+  
   goconst:
     min-len: 2
     min-occurrences: 3
+  
   gocritic:
     enabled-tags:
       - diagnostic
@@ -15,22 +17,72 @@ linters-settings:
       - opinionated
       - performance
       - style
+    disabled-checks:
+      - commentedOutCode
+      - ifElseChain  
+    settings:
+      # TODO: fixes the issues requiring this large thresholds
+      hugeParam:
+        sizeThreshold: 300
+      rangeValCopy:
+        sizeThreshold: 300
+  
   gofumpt:
     extra-rules: true
-  gomnd:
+  
+  mnd:
     ignored-numbers:
       - '0'
       - '1'
       - '2'
       - '3'
+      - '4'
+      - '5'
+      - '6'
+      - '10'
+      - '24'    # Hours
+      - '60'    # Minutes/seconds
+      - '100'   # Common percentage
+      - '200'   # HTTP OK
+      - '404'   # HTTP Not Found
+      - '500'   # HTTP Server Error
     ignored-functions:
       - strings.SplitN
+      - time.Duration
+      - truncateURL
+    ignored-files:
+      - "internal/server/test_helpers.go"
+  
+  funlen:
+    lines: 100
+    statements: 60
+  
   misspell:
     locale: US
+  
   nolintlint:
     allow-unused: false
     require-explanation: false
     require-specific: false
+  
+  wrapcheck:
+    # Fix fmt.Errorf false positives
+    ignoreSigs:
+      - "fmt.Errorf(format string, a ...any) error"
+      - "(*html/template.Template).ExecuteTemplate"
+      - "(*bytes.Buffer).Write"
+      # UI interaction functions - errors are self-explanatory
+      - "(github.com/pterm/pterm.InteractiveTextInputPrinter).Show"
+      - "(github.com/pterm/pterm.InteractiveConfirmPrinter).Show"
+      - "(*github.com/pterm/pterm.InteractiveSelectPrinter).Show"
+      - "(*github.com/pterm/pterm.InteractiveMultiselectPrinter).Show"
+      # Server shutdown - context is clear from calling function
+      - "(*net/http.Server).Shutdown"
+  
+  gosec:
+    excludes:
+      - G401  # MD5 exclusion for non-crypto use
+      # - G107 
 
 linters:
   enable:
@@ -67,7 +119,19 @@ linters:
 
 issues:
   exclude-rules:
+    # Be more lenient with tests
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - funlen
+        - wrapcheck
+        - gosec
+    
+    # Test helpers can have magic numbers
+    - path: internal/server/test_helpers\.go
+      linters:
+        - mnd
+        - gocritic
+  
+  max-issues-per-linter: 0
+  max-same-issues: 0

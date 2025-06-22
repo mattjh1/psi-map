@@ -84,11 +84,11 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 }
 
 // combineResults merges cached and new results, maintaining URL order from sitemap
-func combineResults(cached, new []types.PageResult) []types.PageResult {
+func combineResults(cached, fresh []types.PageResult) []types.PageResult {
 	if len(cached) == 0 {
-		return new
+		return fresh
 	}
-	if len(new) == 0 {
+	if len(fresh) == 0 {
 		return cached
 	}
 
@@ -101,7 +101,7 @@ func combineResults(cached, new []types.PageResult) []types.PageResult {
 	}
 
 	// Add new results (will overwrite any duplicates, though there shouldn't be any)
-	for _, result := range new {
+	for _, result := range fresh {
 		resultMap[result.URL] = result
 	}
 

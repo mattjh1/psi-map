@@ -10,7 +10,6 @@ import (
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
-// SaveJSONReport saves results as JSON
 func SaveJSONReport(results []types.PageResult, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -20,12 +19,18 @@ func SaveJSONReport(results []types.PageResult, filename string) error {
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(results)
+	if err := encoder.Encode(results); err != nil {
+		return fmt.Errorf("failed to save JSON report %s: %w", filename, err)
+	}
+	return nil
 }
 
 // SaveHTMLReport generates HTML report using the server's template and functions
 func SaveHTMLReport(results []types.PageResult, filename string) error {
-	return server.GenerateHTMLFile(results, filename)
+	if err := server.GenerateHTMLFile(results, filename); err != nil {
+		return fmt.Errorf("failed to generate HTML report %s: %w", filename, err)
+	}
+	return nil
 }
 
 // PrintSummary prints a summary to console using server's summary generation
