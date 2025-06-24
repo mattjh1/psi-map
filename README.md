@@ -57,16 +57,6 @@ psi-map --list-cache
 psi-map --clear-cache
 ```
 
-## Configuration
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--workers` | Number of concurrent workers | 5 |
-| `--format` | Output format (html, json, csv) | html |
-| `--output` | Output file path | stdout |
-| `--no-cache` | Skip cache, force fresh analysis | false |
-| `--max-cache-age` | Maximum cache age | 24h |
-
 ## Development
 
 ```bash
