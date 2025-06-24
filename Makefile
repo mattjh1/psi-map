@@ -125,14 +125,17 @@ clean: ## Clean build artifacts
 
 deps: ## Download dependencies
 	@echo "$(BLUE)Downloading dependencies...$(NC)"
-	go mod download
+	@go mod download
 	@echo "$(GREEN)✓ Dependencies downloaded$(NC)"
+
+install-tools: ## Install development tools
+	@echo "$(BLUE)Installing development tools...$(NC)"
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "$(GREEN)✓ Development tools installed$(NC)"
 
 check-deps: ## Check if required tools are installed
 	@echo "$(BLUE)Checking dependencies...$(NC)"
-	@command -v golangci-lint >/dev/null 2>&1 || \
-		(echo "$(RED)✗ golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(NC)" && exit 1)
-	@echo "$(GREEN)✓ All dependencies available$(NC)"
+	@command -v golangci-lint >/dev/null 2>&1 && echo "$(GREEN)✓ golangci-lint found$(NC)" || echo "$(RED)✗ golangci-lint not found$(NC)"
 
 info: ## Show build info
 	@echo "$(BLUE)Build Information:$(NC)"
@@ -163,10 +166,7 @@ docker-build: ## Build and push Docker image for CI
 
 ## CI/CD helpers
 
-ci-setup: deps check-deps ## Set up CI environment (dependencies and tools)
-	@echo "$(BLUE)Setting up CI environment...$(NC)"
-	@go mod download
-	@command -v golangci-lint >/dev/null 2>&1 || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+ci-setup: deps install-tools ## Set up CI environment (dependencies and tools)
 	@echo "$(GREEN)✓ CI environment ready$(NC)"
 
 ci-test: deps test lint ## Run CI tests
