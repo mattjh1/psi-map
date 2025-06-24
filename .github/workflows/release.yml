@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 env:
-  GO_VERSION: ${{ env.GO_VERSION }}
+  GO_VERSION: '1.24'
   NODE_VERSION: '22'
   APP_NAME: psi-map
 
@@ -39,24 +39,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-node-
 
-      - run: make ci-build
+      - name: Build release binaries
+        run: make ci-build
 
-      - id: release_notes
+      - name: Generate release notes
+        id: release_notes
         run: |
-          npm install --no-save conventional-changelog-cli
-          npx conventional-changelog -p angular -r 2 -i CHANGELOG.md -s
+          # Check if we have conventional-changelog and CHANGELOG.md
+          if [ -f "package.json" ] && [ -f "CHANGELOG.md" ]; then
+            npm install --no-save conventional-changelog-cli
+            npx conventional-changelog -p angular -r 2 -i CHANGELOG.md -s
+            VERSION=${GITHUB_REF#refs/tags/}
+            awk "/^## $VERSION/,/^## [0-9]/ {print}" CHANGELOG.md | head -n -1 > release_notes.txt
+          else
+            # Generate simple release notes from git log
+            echo "## Changes" > release_notes.txt
+            echo "" >> release_notes.txt
+            if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
+              git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> release_notes.txt
+            else
+              git log --pretty=format:"- %s" --max-count=10 >> release_notes.txt
+            fi
+          fi
+
+      - name: Commit changelog (if exists)
+        if: success() && hashFiles('CHANGELOG.md') != ''
+        run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          awk "/^## $VERSION/,/^## [0-9]/ {print}" CHANGELOG.md | head -n -1 > release_notes.txt
-
-      - id: commit_changelog
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git commit -m "docs: update CHANGELOG for $VERSION [skip ci]"
-          git push origin HEAD:main
+          git commit -m "docs: update CHANGELOG for $VERSION [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Could not push changelog update"
 
-      - uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/${{ env.APP_NAME }}-*
