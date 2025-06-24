@@ -71,7 +71,7 @@ jobs:
         run: make ci-build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-binaries
           path: |
@@ -80,7 +80,7 @@ jobs:
           retention-days: 30
 
       - name: Upload checksums
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: checksums
           path: dist/checksums.txt

@@ -37,7 +37,7 @@ jobs:
   gosec_scan:
     name: Go Security Scan
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'  # Skip on scheduled runs to avoid duplication
+    if: github.event_name != 'schedule'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
           go-version: '1.24'
 
       - name: Run gosec Security Scanner
-        uses: securecodewarrior/github-action-gosec@master
+        uses: securego/gosec@master
         with:
           args: '-fmt sarif -out gosec-results.sarif ./...'
 
