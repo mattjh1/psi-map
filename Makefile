@@ -169,7 +169,7 @@ docker-build: ## Build and push Docker image for CI
 ci-setup: deps install-tools ## Set up CI environment (dependencies and tools)
 	@echo "$(GREEN)✓ CI environment ready$(NC)"
 
-ci-test: deps test lint ## Run CI tests
+ci-test: deps test-coverage lint ## Run CI tests
 	@echo "$(GREEN)✓ CI tests completed$(NC)"
 
 ci-build: clean build-all checksums ## Build for CI

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	//nolint:gosec // MD5 used for cache key generation, not cryptography
+	// #nosec G501 - used only for checksums, not for security
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -66,6 +66,7 @@ func getCacheDir() (string, error) {
 }
 
 func calculateSitemapHash(sitemapPath string, urls []string) (string, error) {
+	// #nosec G401 - used only for checksums, not for security
 	hash := md5.New()
 	if sitemapPath != "" {
 		file, err := os.Open(sitemapPath)
@@ -85,6 +86,7 @@ func calculateSitemapHash(sitemapPath string, urls []string) (string, error) {
 }
 
 func getURLCacheFilename(cacheDir, url string) string {
+	// #nosec G401 - used only for checksums, not for security
 	urlHash := fmt.Sprintf("%x", md5.Sum([]byte(url)))
 	return filepath.Join(cacheDir, "urls", fmt.Sprintf("url-%s.json", urlHash))
 }
