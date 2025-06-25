@@ -80,11 +80,11 @@ psi-map cache clear
 
 ### Global Options
 
-`--sitemap, -s`: Sitemap file path or URL (required)
-``--html, -H``: Generate HTML report file
-`--json, -j`: Generate JSON report file
-`--workers, -w`: Maximum number of concurrent workers
-`--cache-ttl`: Cache TTL in hours (0 = no expiration)
+- `--sitemap, -s`: Sitemap file path or URL (required)
+- ``--html, -H``: Generate HTML report file
+- `--json, -j`: Generate JSON report file
+- `--workers, -w`: Maximum number of concurrent workers
+- `--cache-ttl`: Cache TTL in hours (0 = no expiration)
 
 ## Development
 
