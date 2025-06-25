@@ -35,27 +35,56 @@ make install
 ### Using Docker
 
 ```bash
-docker run --rm -v $(pwd):/workspace ghcr.io/mattjh1/psi-map:latest sitemap.xml
+docker run --rm -v $(pwd):/workspace ghcr.io/mattjh1/psi-map:latest serve --sitemap sitemap.xml
 ```
 
 ## Usage
 
+### Web Server
+
 ```bash
-# Basic usage
-psi-map sitemap.xml
+# Start server with local sitemap file
+psi-map serve --sitemap sitemap.xml
 
-# With custom output format
-psi-map --format html --output report.html sitemap.xml
+# Start server with remote sitemap URL
+psi-map serve --sitemap https://example.com/sitemap.xml
 
-# Skip cache and force fresh analysis
-psi-map --no-cache sitemap.xml
+# Or use the short flag
+psi-map serve -s sitemap.xml
 
-# List cached results
-psi-map --list-cache
+# Generate HTML report
+psi-map serve --sitemap sitemap.xml --html report.html
 
-# Clear all cache
-psi-map --clear-cache
+# Generate JSON report  
+psi-map serve -s https://example.com/sitemap.xml --json results.json
+
+# Custom number of workers (default is half of available CPUs)
+psi-map serve -s sitemap.xml --workers 10
+
+# Set cache TTL (default 24 hours, 0 for no expiration)
+psi-map serve -s sitemap.xml --cache-ttl 48
 ```
+
+### Cache Management
+
+```bash
+# List cached results
+psi-map cache list
+
+# Clean expired cache files
+psi-map cache clean
+
+# Clear all cached results
+psi-map cache clear
+```
+
+### Global Options
+
+`--sitemap, -s`: Sitemap file path or URL (required)
+``--html, -H``: Generate HTML report file
+`--json, -j`: Generate JSON report file
+`--workers, -w`: Maximum number of concurrent workers
+`--cache-ttl`: Cache TTL in hours (0 = no expiration)
 
 ## Development
 
