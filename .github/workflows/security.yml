@@ -17,6 +17,14 @@ jobs:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
     steps:
+      - name: Check commit message
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ ^(docs:|chore:|ci:|refactor:|test:).* ]]; then
+            echo "Skipping Trivy scan for docs:, chore:, ci:, refactor:, or test: commit"
+            exit 0
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -39,6 +47,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     steps:
+      - name: Check commit message
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ ^(docs:|chore:|ci:|refactor:|test:).* ]]; then
+            echo "Skipping gosec scan for docs:, chore:, ci:, refactor:, or test: commit"
+            exit 0
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 

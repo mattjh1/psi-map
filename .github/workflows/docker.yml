@@ -2,10 +2,9 @@ name: Docker Build
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   docker:

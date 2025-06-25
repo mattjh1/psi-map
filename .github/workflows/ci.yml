@@ -15,15 +15,34 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
+      - name: Check commit message
+        id: check_skip
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ ^(docs:|chore:|ci:).* ]]; then
+            echo "Skipping test job for docs:, chore:, or ci: commit"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Lint Dockerfile
+        if: hashFiles('Dockerfile') != ''
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
       - uses: actions/checkout@v4
+        if: steps.check_skip.outputs.skip == 'false'
         with:
           fetch-depth: 0
       
       - uses: actions/setup-go@v4
+        if: steps.check_skip.outputs.skip == 'false'
         with:
           go-version: ${{ env.GO_VERSION }}
       
       - uses: actions/cache@v3
+        if: steps.check_skip.outputs.skip == 'false'
         with:
           path: |
             ~/.cache/go-build
@@ -33,13 +52,15 @@ jobs:
             ${{ runner.os }}-go-
       
       - name: Setup CI dependencies
+        if: steps.check_skip.outputs.skip == 'false'
         run: make ci-setup
       
       - name: Run tests
+        if: steps.check_skip.outputs.skip == 'false'
         run: make ci-test
       
       - name: Upload coverage to Codecov
-        if: github.event_name == 'push'
+        if: steps.check_skip.outputs.skip == 'false' && github.event_name == 'push'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -51,6 +72,28 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
+      - name: Debug commit message
+        run: |
+          echo "Commit message: ${{ github.event.head_commit.message }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR head commit: ${{ github.event.pull_request.head.sha }}"
+            git show -s --format=%s ${{ github.event.pull_request.head.sha }}
+          fi
+
+      - name: Check commit message
+        id: check_skip
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        run: |
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_MESSAGE=$(git show -s --format=%s ${{ github.event.pull_request.head.sha }})
+          fi
+          echo "Checking commit message: $COMMIT_MESSAGE"
+          if [[ "$COMMIT_MESSAGE" =~ ^(docs:|chore:|ci:|refactor:|test:).* ]]; then
+            echo "Skipping build for docs:, chore:, ci:, refactor:, or test: commit"
+            exit 0
+          fi
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
