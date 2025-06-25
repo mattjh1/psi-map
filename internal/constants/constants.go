@@ -2,6 +2,13 @@ package constants
 
 import "time"
 
+// Valid output formats.
+const (
+	HTML   = "html"
+	JSON   = "json"
+	STDOUT = "stdout"
+)
+
 // Runner constants
 const (
 	WaitGroupWorkers = 2

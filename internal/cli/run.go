@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/server"
 	"github.com/mattjh1/psi-map/internal/types"
@@ -20,17 +21,13 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 	outputDir := c.String("output-dir")
 	name := c.String("name")
 
-	// Debug: Print what we're getting from the CLI context
-	fmt.Printf("DEBUG: CLI output flag value: %s\n", c.String("output"))
-	fmt.Printf("DEBUG: format after toLower: %s\n", format)
-
 	var outputFile string
 	var useStdout bool
 	var outputFormat string // Add this to track the actual format
 
 	if format == "stdout" {
 		useStdout = true
-		outputFormat = "json" // Default format for stdout
+		outputFormat = constants.JSON // Default format for stdout
 	} else if !isServerCommand {
 		// Set the output format to match the requested format
 		outputFormat = format
@@ -38,9 +35,9 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 		// Only set output file if not server command and not stdout
 		var extension string
 		switch format {
-		case "json":
+		case constants.JSON:
 			extension = ".json"
-		case "html":
+		case constants.HTML:
 			extension = ".html"
 		default:
 			return fmt.Errorf("unsupported output format: %s", format)
@@ -58,8 +55,6 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 		MaxWorkers:   c.Int("workers"),
 		CacheTTL:     c.Int("cache-ttl"),
 	}
-	fmt.Printf("DEBUG: format=%s, outputFile=%s, useStdout=%t, outputFormat=%s\n",
-		format, config.OutputFile, config.UseStdout, config.OutputFormat)
 	return executeAnalysis(config)
 }
 

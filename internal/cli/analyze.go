@@ -30,7 +30,7 @@ Examples:
 				Name:    "output",
 				Aliases: []string{"o"},
 				Usage:   "Output format: json, html, stdout (default: json)",
-				Value:   "json",
+				Value:   constants.JSON,
 			},
 			&cli.StringFlag{
 				Name:  "output-dir",
@@ -79,7 +79,7 @@ func handleOutputFlags(c *cli.Context) error {
 
 	// Validate format
 	switch format {
-	case "json", "html", "stdout":
+	case constants.STDOUT, constants.HTML, constants.JSON:
 		// Valid formats
 	default:
 		return fmt.Errorf("unsupported output format: %s (supported: json, html, stdout)", format)
