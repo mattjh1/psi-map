@@ -1,12 +1,12 @@
 # PSI-Map
 
-![Go Version](https://img.shields.io/github/go-mod/go-version/mattjh1/psi-map)
-![Build](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml/badge.svg)
-![Release](https://github.com/mattjh1/psi-map/actions/workflows/release.yml/badge.svg)
-![Docker Build](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml/badge.svg)
-![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)
-![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)
-![License](https://img.shields.io/github/license/mattjh1/psi-map.svg)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/mattjh1/psi-map)](https://github.com/mattjh1/psi-map/blob/main/go.mod)
+[![Build](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml)
+[![Release](https://github.com/mattjh1/psi-map/actions/workflows/release.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/release.yml)
+[![Docker Build](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml)
+[![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/security.yml)
+[![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)](https://codecov.io/gh/mattjh1/psi-map)
+[![License](https://img.shields.io/github/license/mattjh1/psi-map.svg)](https://github.com/mattjh1/psi-map/blob/main/LICENSE)
 
 A command-line tool for batch PageSpeed Insights analysis using sitemap.xml files.
 
@@ -40,32 +40,42 @@ docker run --rm -v $(pwd):/workspace ghcr.io/mattjh1/psi-map:latest serve --site
 
 ## Usage
 
-### Web Server
+### Analyze Command
+
+Analyze a sitemap and generate PageSpeed Insights reports in various formats.
 
 ```bash
-# Start server with local sitemap file
-psi-map serve --sitemap sitemap.xml
-
-# Start server with remote sitemap URL
-psi-map serve --sitemap https://example.com/sitemap.xml
-
-# Or use the short flag
-psi-map serve -s sitemap.xml
+# Basic JSON output (default)
+psi-map analyze sitemap.xml
 
 # Generate HTML report
-psi-map serve --sitemap sitemap.xml --html report.html
+psi-map analyze -o html sitemap.xml
 
-# Generate JSON report  
-psi-map serve -s https://example.com/sitemap.xml --json results.json
+# Custom output directory and filename
+psi-map analyze -o json --output-dir ./reports --name my-report sitemap.xml
 
-# Custom number of workers (default is half of available CPUs)
-psi-map serve -s sitemap.xml --workers 10
+# Output to stdout
+psi-map analyze -o stdout https://example.com/sitemap.xml
+```
 
-# Set cache TTL (default 24 hours, 0 for no expiration)
-psi-map serve -s sitemap.xml --cache-ttl 48
+### Web Server
+
+Start an interactive web server to view PageSpeed Insights results in your browser.
+
+```bash
+# Start server with local sitemap
+psi-map server sitemap.xml
+
+# Start server with remote sitemap
+psi-map server https://example.com/sitemap.xml
+
+# Custom port
+psi-map server --port 3000 sitemap.xml
 ```
 
 ### Cache Management
+
+Manage cached PageSpeed Insights results.
 
 ```bash
 # List cached results
@@ -78,13 +88,18 @@ psi-map cache clean
 psi-map cache clear
 ```
 
-### Global Options
+### Command Aliases
 
-- `--sitemap, -s`: Sitemap file path or URL (required)
-- ``--html, -H``: Generate HTML report file
-- `--json, -j`: Generate JSON report file
-- `--workers, -w`: Maximum number of concurrent workers
-- `--cache-ttl`: Cache TTL in hours (0 = no expiration)
+- `analyze` = `run`
+- `server` = `serve`
+
+### Example Use Cases
+
+- **Quick Analysis**: `psi-map analyze sitemap.xml`
+- **HTML Report**: `psi-map analyze -o html --name site-performance sitemap.xml`
+- **CI/CD Pipeline**: `psi-map analyze -o json --output-dir ./reports --name build-${BUILD_ID} sitemap.xml`
+- **Interactive Development**: `psi-map serve --port 3000 sitemap.xml`
+
 
 ## Development
 

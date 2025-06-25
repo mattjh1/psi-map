@@ -1,33 +1,53 @@
 package cli
 
-import "github.com/urfave/cli/v2"
+import (
+	"fmt"
+	"runtime"
+
+	"github.com/mattjh1/psi-map/internal/constants"
+	"github.com/urfave/cli/v2"
+)
 
 // serverCommand returns the server subcommand
 func serverCommand() *cli.Command {
-	return &cli.Command{
-		Name:    "server",
-		Aliases: []string{"serve"},
-		Usage:   "Start web server with analysis results",
-		Flags:   serverFlags(),
-		Action: func(c *cli.Context) error {
-			return runAnalysis(c, true)
-		},
-	}
-}
+	defaultWorkers := max(1, runtime.NumCPU()/constants.CPUDivisor)
 
-func serverFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:     "sitemap",
-			Aliases:  []string{"s"},
-			Usage:    "URL or sitemap.xml file path",
-			Required: true,
+	return &cli.Command{
+		Name:      "server",
+		Aliases:   []string{"serve"},
+		Usage:     "Start interactive web server for analysis",
+		ArgsUsage: "[flags] <sitemap_url_or_file>",
+		Description: `Start a web server to interactively analyze and view PageSpeed Insights results.
+        
+Examples:
+  psi-map server sitemap.xml
+  psi-map serve --port 3000 https://example.com/sitemap.xml
+  psi-map serve --port 8080 sitemap.xml`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "port",
+				Aliases: []string{"p"},
+				Usage:   "Server port",
+				Value:   "8080",
+			},
+			&cli.IntFlag{
+				Name:    "workers",
+				Aliases: []string{"w"},
+				Usage:   "Maximum number of concurrent workers",
+				Value:   defaultWorkers,
+			},
+			&cli.IntFlag{
+				Name:  "cache-ttl",
+				Value: constants.DefaultTTLHours,
+				Usage: "Cache TTL in hours (0 = no expiration)",
+			},
 		},
-		&cli.StringFlag{
-			Name:    "port",
-			Aliases: []string{"p"},
-			Usage:   "Server port",
-			Value:   "8080",
+		Action: func(c *cli.Context) error {
+			if c.NArg() < 1 {
+				return fmt.Errorf("sitemap URL or file path is required")
+			}
+
+			return runAnalysis(c, true)
 		},
 	}
 }

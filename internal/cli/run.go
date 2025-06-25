@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mattjh1/psi-map/internal/logger"
@@ -13,16 +15,51 @@ import (
 )
 
 // runAnalysis executes the core analysis logic
-func runAnalysis(c *cli.Context, forceServer bool) error {
-	config := &types.AnalysisConfig{
-		Sitemap:     c.String("sitemap"),
-		OutputHTML:  c.String("html"),
-		OutputJSON:  c.String("json"),
-		StartServer: c.Bool("server") || forceServer,
-		ServerPort:  c.String("port"),
-		MaxWorkers:  c.Int("workers"),
-		CacheTTL:    c.Int("cache-ttl"),
+func runAnalysis(c *cli.Context, isServerCommand bool) error {
+	format := strings.ToLower(c.String("output"))
+	outputDir := c.String("output-dir")
+	name := c.String("name")
+
+	// Debug: Print what we're getting from the CLI context
+	fmt.Printf("DEBUG: CLI output flag value: %s\n", c.String("output"))
+	fmt.Printf("DEBUG: format after toLower: %s\n", format)
+
+	var outputFile string
+	var useStdout bool
+	var outputFormat string // Add this to track the actual format
+
+	if format == "stdout" {
+		useStdout = true
+		outputFormat = "json" // Default format for stdout
+	} else if !isServerCommand {
+		// Set the output format to match the requested format
+		outputFormat = format
+
+		// Only set output file if not server command and not stdout
+		var extension string
+		switch format {
+		case "json":
+			extension = ".json"
+		case "html":
+			extension = ".html"
+		default:
+			return fmt.Errorf("unsupported output format: %s", format)
+		}
+		outputFile = filepath.Join(outputDir, name+extension)
 	}
+
+	config := &types.AnalysisConfig{
+		Sitemap:      c.Args().First(),
+		OutputFile:   outputFile,
+		OutputFormat: outputFormat,
+		UseStdout:    useStdout,
+		StartServer:  isServerCommand,
+		ServerPort:   c.String("port"),
+		MaxWorkers:   c.Int("workers"),
+		CacheTTL:     c.Int("cache-ttl"),
+	}
+	fmt.Printf("DEBUG: format=%s, outputFile=%s, useStdout=%t, outputFormat=%s\n",
+		format, config.OutputFile, config.UseStdout, config.OutputFormat)
 	return executeAnalysis(config)
 }
 
@@ -123,24 +160,30 @@ func handleOutput(config *types.AnalysisConfig, results []types.PageResult, elap
 		if err := server.Start(results, config.ServerPort); err != nil {
 			return fmt.Errorf("failed to start server: %w", err)
 		}
-	case config.OutputHTML != "":
-		log.Tagged("STEP", "Generating HTML report: %s", "📄", config.OutputHTML)
-		if err := utils.SaveHTMLReport(results, config.OutputHTML); err != nil {
-			return fmt.Errorf("failed to generate HTML report: %w", err)
+	case config.UseStdout:
+		log.Tagged("STEP", "Outputting results to stdout", "📤")
+		if err := utils.SaveJSONToStdout(results); err != nil {
+			return fmt.Errorf("failed to output JSON to stdout: %w", err)
 		}
-		log.Success("HTML report saved: %s", config.OutputHTML)
-		utils.PrintSummary(results, elapsed)
-	case config.OutputJSON != "":
-		log.Tagged("STEP", "Generating JSON report: %s", "📋", config.OutputJSON)
-		if err := utils.SaveJSONReport(results, config.OutputJSON); err != nil {
-			return fmt.Errorf("failed to generate JSON report: %w", err)
+	case config.OutputFile != "":
+		switch config.OutputFormat {
+		case "html":
+			log.Tagged("STEP", "Generating HTML report: %s", "📄", config.OutputFile)
+			if err := utils.SaveHTMLReport(results, config.OutputFile); err != nil {
+				return fmt.Errorf("failed to generate HTML report: %w", err)
+			}
+			log.Success("HTML report saved: %s", config.OutputFile)
+		case "json":
+			log.Tagged("STEP", "Generating JSON report: %s", "📋", config.OutputFile)
+			if err := utils.SaveJSONReport(results, config.OutputFile); err != nil {
+				return fmt.Errorf("failed to generate JSON report: %w", err)
+			}
+			log.Success("JSON report saved: %s", config.OutputFile)
 		}
-		log.Success("JSON report saved: %s", config.OutputJSON)
 		utils.PrintSummary(results, elapsed)
 	default:
 		// Just print summary to console
 		utils.PrintSummary(results, elapsed)
 	}
-
 	return nil
 }

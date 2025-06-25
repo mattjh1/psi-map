@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
@@ -15,17 +16,29 @@ import (
 func cacheCommands() *cli.Command {
 	return &cli.Command{
 		Name:  "cache",
-		Usage: "Cache management commands",
+		Usage: "Manage cached PageSpeed Insights results",
+		Description: `Manage cached results to optimize performance and storage.
+        
+Examples:
+  psi-map cache list
+  psi-map cache list --verbose
+  psi-map cache clean --dry-run
+  psi-map cache clear --force`,
 		Subcommands: []*cli.Command{
 			{
 				Name:   "list",
-				Usage:  "List cached results",
+				Usage:  "List cached results with details",
 				Action: cacheListCommand,
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "verbose",
 						Aliases: []string{"v"},
 						Usage:   "Show verbose cache information including sizes",
+					},
+					&cli.IntFlag{
+						Name:  "cache-ttl",
+						Value: constants.DefaultTTLHours,
+						Usage: "Cache TTL in hours for status calculation",
 					},
 				},
 			},
@@ -37,6 +50,11 @@ func cacheCommands() *cli.Command {
 					&cli.BoolFlag{
 						Name:  "dry-run",
 						Usage: "Show what would be deleted without actually deleting",
+					},
+					&cli.IntFlag{
+						Name:  "cache-ttl",
+						Value: constants.DefaultTTLHours,
+						Usage: "Cache TTL in hours",
 					},
 				},
 			},

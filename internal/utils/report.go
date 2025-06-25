@@ -25,6 +25,16 @@ func SaveJSONReport(results []types.PageResult, filename string) error {
 	return nil
 }
 
+// SaveJSONToStdout outputs JSON results to stdout for piping
+func SaveJSONToStdout(results []types.PageResult) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(results); err != nil {
+		return fmt.Errorf("failed to encode JSON to stdout: %w", err)
+	}
+	return nil
+}
+
 // SaveHTMLReport generates HTML report using the server's template and functions
 func SaveHTMLReport(results []types.PageResult, filename string) error {
 	if err := server.GenerateHTMLFile(results, filename); err != nil {
