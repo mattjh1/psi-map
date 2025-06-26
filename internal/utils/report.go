@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/server"
 	"github.com/mattjh1/psi-map/internal/types"
 )
@@ -45,41 +46,42 @@ func SaveHTMLReport(results []types.PageResult, filename string) error {
 
 // PrintSummary prints a summary to console using server's summary generation
 func PrintSummary(results []types.PageResult, elapsed time.Duration) {
+	log := logger.GetLogger()
+	ui := log.UI()
 	summary := server.GenerateSummary(results)
 
-	fmt.Println("\n========== SUMMARY ==========")
-	fmt.Printf("Total Pages Analyzed: %d\n", summary.TotalPages)
-	fmt.Printf("Successful: %d\n", summary.SuccessfulPages)
-	fmt.Printf("Failed: %d\n", summary.FailedPages)
+	ui.Header("SUMMARY")
+	log.Info("Total Pages Analyzed: %d", summary.TotalPages)
+	log.Success("Successful: %d", summary.SuccessfulPages)
+	log.Error("Failed: %d", summary.FailedPages)
 
 	if summary.SuccessfulPages > 0 {
-		fmt.Println("\nAverage Scores:")
+		ui.Section("Average Scores")
 		if score, ok := summary.AverageScores["performance"]; ok {
-			fmt.Printf("  Performance: %.1f\n", score)
+			log.Info("  Performance: %.1f", score)
 		}
 		if score, ok := summary.AverageScores["accessibility"]; ok {
-			fmt.Printf("  Accessibility: %.1f\n", score)
+			log.Info("  Accessibility: %.1f", score)
 		}
 		if score, ok := summary.AverageScores["best_practices"]; ok {
-			fmt.Printf("  Best Practices: %.1f\n", score)
+			log.Info("  Best Practices: %.1f", score)
 		}
 		if score, ok := summary.AverageScores["seo"]; ok {
-			fmt.Printf("  SEO: %.1f\n", score)
+			log.Info("  SEO: %.1f", score)
 		}
 
-		fmt.Println("\nScore Distribution:")
+		ui.Section("Score Distribution")
 		categories := []string{"performance", "accessibility", "best_practices", "seo"}
 		for _, cat := range categories {
 			if dist, ok := summary.ScoreDistribution[cat]; ok && len(dist) >= 3 {
 				categoryName := formatCategoryName(cat)
-				fmt.Printf("  %s: Good: %d, Needs Improvement: %d, Poor: %d\n",
+				log.Info("  %s: Good: %d, Needs Improvement: %d, Poor: %d",
 					categoryName, dist[0], dist[1], dist[2])
 			}
 		}
 	}
 
-	fmt.Printf("\nTotal Time Elapsed: %v\n", elapsed)
-	fmt.Println("=============================")
+	log.Info("Total Time Elapsed: %v", elapsed)
 }
 
 // formatCategoryName converts snake_case to Title Case

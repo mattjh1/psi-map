@@ -26,7 +26,7 @@ type Logger struct {
 	Level    LogLevel
 	Prefix   string
 	ShowTime bool
-	Output   io.Writer // Optional output destination (e.g., file, network)
+	Output   io.Writer
 	mu       sync.RWMutex
 }
 
@@ -101,7 +101,10 @@ var (
 // Init initializes the singleton logger with the given options
 func Init(options ...Option) {
 	once.Do(func() {
-		singletonLogger = &Logger{Level: INFO, Output: os.Stdout}
+		// Configure pterm to use stderr for all output
+		pterm.SetDefaultOutput(os.Stderr)
+
+		singletonLogger = &Logger{Level: INFO, Output: os.Stderr}
 		for _, opt := range options {
 			opt(singletonLogger)
 		}
@@ -119,7 +122,10 @@ func GetLogger() *Logger {
 
 // New creates a new logger instance (non-singleton, for testing or special cases)
 func New(options ...Option) *Logger {
-	l := &Logger{Level: INFO, Output: os.Stdout}
+	// Configure pterm to use stderr for all output
+	pterm.SetDefaultOutput(os.Stderr)
+
+	l := &Logger{Level: INFO, Output: os.Stderr}
 	for _, opt := range options {
 		opt(l)
 	}
@@ -157,10 +163,10 @@ func (l *Logger) log(level LogLevel, printer *pterm.PrefixPrinter, message strin
 	formattedMsg := l.formatMessage(msg)
 
 	// Output to CLI using pterm
-	printer.Println(formattedMsg)
+	printer.WithWriter(l.Output).Println(formattedMsg)
 
 	// Output to alternative destination if specified and not stdout
-	if l.Output != nil && l.Output != os.Stdout {
+	if l.Output != nil && l.Output != os.Stderr {
 		fmt.Fprintln(l.Output, formattedMsg)
 	}
 }
@@ -214,11 +220,12 @@ func (l *Logger) Tagged(tag, message, emoji string, args ...any) {
 			Text:  tag,
 			Style: pterm.NewStyle(tagColor(tag), pterm.FgLightWhite),
 		},
+		Writer: l.Output,
 	}
 	printer.Println(formattedMsg)
 
 	// Output to alternative destination if specified
-	if l.Output != nil && l.Output != os.Stdout {
+	if l.Output != nil && l.Output != os.Stderr {
 		fmt.Fprintf(l.Output, "[%s] %s\n", tag, formattedMsg)
 	}
 }
@@ -293,6 +300,46 @@ func (u *UI) RunSpinner(text string, task func() error) error {
 		return err
 	}
 	spinner.Success("Completed")
+	return nil
+}
+
+// RunProgressBar runs a progress bar for a task with a known total number of steps
+func (u *UI) RunProgressBar(text string, total int, task func(increment func()) error) error {
+	// Initialize progress bar
+	progressbar, err := pterm.DefaultProgressbar.
+		WithTotal(total).
+		WithTitle(text).
+		Start()
+	if err != nil {
+		err = fmt.Errorf("failed to start progress bar: %w", err)
+		u.Logger.Error("Failed to start progress bar: %v", err)
+		return err
+	}
+
+	// Define increment function for the task to call
+	increment := func() {
+		progressbar.Increment()
+	}
+
+	// Run the task, passing the increment function
+	err = task(increment)
+	if err != nil {
+		progressbar.UpdateTitle("Failed: " + err.Error())
+		if _, stopErr := progressbar.Stop(); stopErr != nil {
+			stopErr = fmt.Errorf("failed to stop progress bar after task failure: %w", stopErr)
+			u.Logger.Error("%v", stopErr)
+			return fmt.Errorf("task failed: %w; stop error: %v", err, stopErr)
+		}
+		return fmt.Errorf("task failed: %w", err)
+	}
+
+	progressbar.UpdateTitle("Completed")
+	progressbar.WithCurrent(total)
+	if _, err := progressbar.Stop(); err != nil {
+		err = fmt.Errorf("failed to stop progress bar: %w", err)
+		u.Logger.Error("%v", err)
+		return err
+	}
 	return nil
 }
 

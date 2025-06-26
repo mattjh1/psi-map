@@ -55,12 +55,6 @@ Examples:
 			},
 		},
 		Action: func(c *cli.Context) error {
-			fmt.Printf("DEBUG: Raw CLI args: %v\n", c.Args().Slice())
-			fmt.Printf("DEBUG: c.String('output'): '%s'\n", c.String("output"))
-			fmt.Printf("DEBUG: c.String('o'): '%s'\n", c.String("o"))
-			fmt.Printf("DEBUG: c.IsSet('output'): %t\n", c.IsSet("output"))
-			fmt.Printf("DEBUG: c.IsSet('o'): %t\n", c.IsSet("o"))
-
 			if c.NArg() < 1 {
 				return fmt.Errorf("sitemap URL or file path is required")
 			}

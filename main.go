@@ -1,10 +1,10 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"github.com/mattjh1/psi-map/internal/cli"
+	"github.com/mattjh1/psi-map/internal/logger"
 )
 
 var (
@@ -14,8 +14,10 @@ var (
 )
 
 func main() {
+	logger.Init(logger.WithOutput(os.Stderr))
 	app := cli.NewApp(version, commit, buildTime)
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		logger.GetLogger().Error("%v", err)
+		os.Exit(1)
 	}
 }
