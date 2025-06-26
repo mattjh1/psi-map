@@ -264,7 +264,7 @@ func (l *Logger) UI(options ...UIOption) *UI {
 
 // Header prints a styled header
 func (u *UI) Header(title string) {
-	header := pterm.DefaultHeader.WithFullWidth()
+	header := pterm.DefaultHeader.WithFullWidth().WithWriter(u.Logger.Output)
 	if u.Style != nil && u.Style.HeaderBgColor != 0 {
 		header = header.WithBackgroundStyle(pterm.NewStyle(u.Style.HeaderBgColor))
 	} else {
@@ -275,25 +275,25 @@ func (u *UI) Header(title string) {
 
 // Section prints a section header with styling
 func (u *UI) Section(title string) {
-	section := pterm.DefaultSection.WithLevel(2)
+	section := pterm.DefaultSection.WithLevel(2).WithWriter(u.Logger.Output)
 	section.Println(title)
 }
 
 // Table prints data in a table format
 func (u *UI) Table(headers []string, data [][]string) {
-	table := pterm.DefaultTable.WithHasHeader().WithData(append(pterm.TableData{headers}, data...))
+	table := pterm.DefaultTable.WithHasHeader().WithData(append(pterm.TableData{headers}, data...)).WithWriter(u.Logger.Output)
 	if u.Style != nil && u.Style.TableBorderStyle != nil {
 		table = table.WithBoxed(true).WithStyle(u.Style.TableBorderStyle)
 	}
 	// table.Render()
 	if err := table.Render(); err != nil {
-		u.Logger.Error("Error rendering table: %v\n", err)
+		u.Logger.Error("Error rendering table: %v", err)
 	}
 }
 
 // RunSpinner runs a spinner for a task
 func (u *UI) RunSpinner(text string, task func() error) error {
-	spinner, _ := pterm.DefaultSpinner.WithText(text).Start()
+	spinner, _ := pterm.DefaultSpinner.WithText(text).WithWriter(u.Logger.Output).Start()
 	err := task()
 	if err != nil {
 		spinner.Fail("Failed: " + err.Error())
@@ -309,6 +309,7 @@ func (u *UI) RunProgressBar(text string, total int, task func(increment func()) 
 	progressbar, err := pterm.DefaultProgressbar.
 		WithTotal(total).
 		WithTitle(text).
+		WithWriter(u.Logger.Output).
 		Start()
 	if err != nil {
 		err = fmt.Errorf("failed to start progress bar: %w", err)
@@ -370,5 +371,5 @@ func (u *UI) Prompt(question string, inputType InputType, options ...string) (an
 
 // Clear clears the terminal screen
 func (u *UI) Clear() {
-	pterm.Print("\033[H\033[2J")
+	fmt.Fprint(u.Logger.Output, "\033[H\033[2J")
 }

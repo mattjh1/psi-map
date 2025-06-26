@@ -7,7 +7,8 @@
 [![Docker Build](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml)
 [![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/mattjh1/psi-map/pkgs/container/psi-map)
 [![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)](https://github.com/mattjh1/psi-map/security/code-scanning)
-[![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)](https://codecov.io/gh/mattjh1/psi-map)
+<!-- one day... -->
+<!-- [![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)](https://codecov.io/gh/mattjh1/psi-map) -->
 [![License](https://img.shields.io/github/license/mattjh1/psi-map.svg)](https://github.com/mattjh1/psi-map/blob/main/LICENSE)
 
 A command-line tool for batch PageSpeed Insights analysis using sitemap.xml files.

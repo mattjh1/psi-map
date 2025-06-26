@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -13,8 +14,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Disable pterm colors to simplify output comparison
+	// Disable pterm colors and styling to simplify output comparison
 	pterm.DisableColor()
+	pterm.DisableStyling()
+	// Redirect pterm output to discard to prevent interference with test buffer
+	pterm.SetDefaultOutput(io.Discard)
+
 	// Reset singleton logger before and after tests
 	ResetLogger()
 	code := m.Run()
@@ -120,8 +125,7 @@ func TestAlternativeOutput(t *testing.T) {
 
 func TestUIHeader(t *testing.T) {
 	var buf threadSafeBuffer
-	pterm.SetDefaultOutput(&buf)
-	l := New()
+	l := New(WithOutput(&buf))
 	u := l.UI()
 
 	u.Header("Test Header")
@@ -134,8 +138,7 @@ func TestUIHeader(t *testing.T) {
 
 func TestUITable(t *testing.T) {
 	var buf threadSafeBuffer
-	pterm.SetDefaultOutput(&buf)
-	l := New()
+	l := New(WithOutput(&buf))
 	u := l.UI(WithUIStyle(&UIStyle{
 		TableBorderStyle: pterm.NewStyle(pterm.FgLightBlue),
 	}))
@@ -204,8 +207,7 @@ func TestPrompt(t *testing.T) {
 
 func TestClear(t *testing.T) {
 	var buf threadSafeBuffer
-	pterm.SetDefaultOutput(&buf)
-	l := New()
+	l := New(WithOutput(&buf))
 	u := l.UI()
 
 	u.Clear()

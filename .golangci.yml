@@ -126,6 +126,7 @@ issues:
         - funlen
         - wrapcheck
         - gosec
+        - gochecknoinits
     
     # Test helpers can have magic numbers
     - path: internal/server/test_helpers\.go

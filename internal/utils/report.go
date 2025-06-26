@@ -11,6 +11,9 @@ import (
 	"github.com/mattjh1/psi-map/internal/types"
 )
 
+// serverGenerateHTMLFile is a package-level variable to allow mocking in tests
+var serverGenerateHTMLFile = server.GenerateHTMLFile
+
 func SaveJSONReport(results []types.PageResult, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -38,7 +41,7 @@ func SaveJSONToStdout(results []types.PageResult) error {
 
 // SaveHTMLReport generates HTML report using the server's template and functions
 func SaveHTMLReport(results []types.PageResult, filename string) error {
-	if err := server.GenerateHTMLFile(results, filename); err != nil {
+	if err := serverGenerateHTMLFile(results, filename); err != nil {
 		return fmt.Errorf("failed to generate HTML report %s: %w", filename, err)
 	}
 	return nil
