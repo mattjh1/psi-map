@@ -1,10 +1,12 @@
 # PSI-Map
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/mattjh1/psi-map)](https://github.com/mattjh1/psi-map/blob/main/go.mod)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mattjh1/psi-map)](https://goreportcard.com/report/github.com/mattjh1/psi-map)
 [![Build](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/ci.yml)
 [![Release](https://github.com/mattjh1/psi-map/actions/workflows/release.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/release.yml)
 [![Docker Build](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/docker.yml)
-[![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)](https://github.com/mattjh1/psi-map/actions/workflows/security.yml)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/mattjh1/psi-map/pkgs/container/psi-map)
+[![Security Scan](https://github.com/mattjh1/psi-map/actions/workflows/security.yml/badge.svg)](https://github.com/mattjh1/psi-map/security/code-scanning)
 [![Codecov](https://codecov.io/gh/mattjh1/psi-map/branch/main/graph/badge.svg)](https://codecov.io/gh/mattjh1/psi-map)
 [![License](https://img.shields.io/github/license/mattjh1/psi-map.svg)](https://github.com/mattjh1/psi-map/blob/main/LICENSE)
 
@@ -40,6 +42,21 @@ docker run --rm -v $(pwd):/workspace ghcr.io/mattjh1/psi-map:latest serve --site
 
 ## Usage
 
+### Web Server
+
+Start an interactive web server to view PageSpeed Insights results in your browser.
+
+```bash
+# Start server with local sitemap
+psi-map server sitemap.xml
+
+# Start server with remote sitemap
+psi-map server https://example.com/sitemap.xml
+
+# Custom port
+psi-map server --port 3000 sitemap.xml
+```
+
 ### Analyze Command
 
 Analyze a sitemap and generate PageSpeed Insights reports in various formats.
@@ -58,20 +75,6 @@ psi-map analyze -o json --output-dir ./reports --name my-report sitemap.xml
 psi-map analyze -o stdout https://example.com/sitemap.xml
 ```
 
-### Web Server
-
-Start an interactive web server to view PageSpeed Insights results in your browser.
-
-```bash
-# Start server with local sitemap
-psi-map server sitemap.xml
-
-# Start server with remote sitemap
-psi-map server https://example.com/sitemap.xml
-
-# Custom port
-psi-map server --port 3000 sitemap.xml
-```
 
 ### Cache Management
 
@@ -95,10 +98,18 @@ psi-map cache clear
 
 ### Example Use Cases
 
+- **Web Server**: `psi-map serve --port 3000 sitemap.xml`
 - **Quick Analysis**: `psi-map analyze sitemap.xml`
 - **HTML Report**: `psi-map analyze -o html --name site-performance sitemap.xml`
 - **CI/CD Pipeline**: `psi-map analyze -o json --output-dir ./reports --name build-${BUILD_ID} sitemap.xml`
-- **Interactive Development**: `psi-map serve --port 3000 sitemap.xml`
+- **CI/CD Performance Gate**:
+
+  ```bash
+  psi-map analyze -o stdout sitemap.xml | \
+  jq -e 'all(.[]; .Mobile.scores.performance >= 80 and .Desktop.scores.performance >= 80)' && \
+  echo "✅ All pages meet performance threshold" || \
+  (echo "❌ Performance check failed" && exit 1)
+  ```
 
 
 ## Development
