@@ -151,7 +151,7 @@ docker-build: ## Build Docker image
 	docker build -t $(APP_NAME):$(VERSION) -t $(APP_NAME):latest .
 	@echo "$(GREEN)✓ Docker image built: $(APP_NAME):$(VERSION)$(NC)"
 
-docker-build: ## Build and push Docker image for CI
+docker-push: ## Build and push Docker image for CI
 	@echo "$(BLUE)Building and pushing Docker image...$(NC)"
 	@docker buildx create --use
 	@docker buildx build \
