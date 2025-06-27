@@ -1,0 +1,70 @@
+version: 1
+
+# Environment variables
+env:
+  - CGO_ENABLED=0
+  - APP_NAME=psi-map
+
+# Build settings
+builds:
+  - id: psi-map
+    main: ./main.go
+    binary: "{{ .Env.APP_NAME }}"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} # Embed version in binary
+
+# Archive settings
+archives:
+  - id: psi-map
+    builds:
+      - psi-map
+    format: tar.gz
+    name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+# Checksum settings
+checksum:
+  name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_checksums.txt"
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github-native
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
+      - '^ci:'
+      - '^test:'
+      - '^refactor:'
+  groups:
+    - title: Features
+      regexp: '^feat:.*$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix:.*$'
+      order: 1
+
+# GitHub release settings
+release:
+  github:
+    owner: mattjh1
+    name: psi-map
+  name_template: "v{{ .Version }}"
+  draft: false
+  prerelease: ${{ contains(.Version, '-') }}
+
+# Hooks for pre-release checks
+before:
+  hooks:
+    - make ci-test

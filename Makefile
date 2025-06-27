@@ -1,4 +1,4 @@
-.PHONY: build clean test lint install dev help release check-deps
+.PHONY: build clean test lint install dev help check-deps release release-dry release-patch release-minor release-major
 .DEFAULT_GOAL := help
 
 # Application info
@@ -87,9 +87,26 @@ mod-tidy: ## Tidy go modules
 
 ## Release and distribution
 
-release: clean test lint build-all ## Create a full release (test, lint, build all platforms)
-	@echo "$(GREEN)✓ Release $(VERSION) ready in $(DIST_DIR)/$(NC)"
-	@ls -la $(DIST_DIR)/
+
+release-dry: ## Run a dry-run release locally with goreleaser
+	@echo "$(BLUE)Running goreleaser dry run...$(NC)"
+	goreleaser release --snapshot --clean
+	@echo "$(GREEN)✓ Dry run release completed$(NC)"
+
+release-patch: ## Tag and push a patch release (triggers GitHub release)
+	@echo "$(BLUE)Tagging patch release...$(NC)"
+	./scripts/release.sh patch
+	@echo "$(GREEN)✓ Patch release tagged and pushed$(NC)"
+
+release-minor: ## Tag and push a minor release (triggers GitHub release)
+	@echo "$(BLUE)Tagging minor release...$(NC)"
+	./scripts/release.sh minor
+	@echo "$(GREEN)✓ Minor release tagged and pushed$(NC)"
+
+release-major: ## Tag and push a major release (triggers GitHub release)
+	@echo "$(BLUE)Tagging major release...$(NC)"
+	./scripts/release.sh major
+	@echo "$(GREEN)✓ Major release tagged and pushed$(NC)"
 
 build-all: clean ## Build binaries for all platforms
 	@echo "$(BLUE)Building $(APP_NAME) v$(VERSION) for all platforms...$(NC)"

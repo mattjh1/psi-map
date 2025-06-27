@@ -7,7 +7,6 @@ on:
 
 env:
   GO_VERSION: '1.24'
-  NODE_VERSION: '22'
   APP_NAME: psi-map
 
 permissions:
@@ -25,44 +24,25 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
       - uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-            ~/.npm
-          key: ${{ runner.os }}-go-node-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-node-
+            ${{ runner.os }}-go-
 
-      - name: Build release binaries
-        run: make ci-build
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          # Check if we have conventional-changelog and CHANGELOG.md
-          if [ -f "package.json" ] && [ -f "CHANGELOG.md" ]; then
-            npm install --no-save conventional-changelog-cli
-            npx conventional-changelog -p angular -r 2 -i CHANGELOG.md -s
-            VERSION=${GITHUB_REF#refs/tags/}
-            awk "/^## $VERSION/,/^## [0-9]/ {print}" CHANGELOG.md | head -n -1 > release_notes.txt
-          else
-            # Generate simple release notes from git log
-            echo "## Changes" > release_notes.txt
-            echo "" >> release_notes.txt
-            if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
-              git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> release_notes.txt
-            else
-              git log --pretty=format:"- %s" --max-count=10 >> release_notes.txt
-            fi
-          fi
-
-      - name: Commit changelog (if exists)
+      - name: Commit changelog
         if: success() && hashFiles('CHANGELOG.md') != ''
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
@@ -71,16 +51,3 @@ jobs:
           git add CHANGELOG.md
           git commit -m "docs: update CHANGELOG for $VERSION [skip ci]" || echo "No changes to commit"
           git push origin HEAD:main || echo "Could not push changelog update"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            dist/${{ env.APP_NAME }}-*
-            dist/checksums.txt
-          body_path: release_notes.txt
-          draft: false
-          prerelease: ${{ contains(github.ref, '-') }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
