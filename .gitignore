@@ -49,3 +49,6 @@ Thumbs.db
 # Nodejs (dev tooling)
 node_modules
 package-lock.json
+
+# Agentic AI
+GEMINI.md
