@@ -12,7 +12,7 @@ import (
 )
 
 // RunBatch runs PSI tests concurrently for a list of URLs with limited concurrency.
-func RunBatch(urls []string, maxConcurrent int) []types.PageResult {
+func RunBatch(urls []string, maxConcurrent int) []*types.PageResult {
 	// Get the singleton logger and configure it
 	log := logger.GetLogger()
 
@@ -20,7 +20,7 @@ func RunBatch(urls []string, maxConcurrent int) []types.PageResult {
 	ui := log.UI()
 
 	var wg sync.WaitGroup
-	results := make([]types.PageResult, len(urls))
+	results := make([]*types.PageResult, len(urls))
 	sem := make(chan struct{}, maxConcurrent)
 	var completed int32
 
@@ -51,10 +51,10 @@ func RunBatch(urls []string, maxConcurrent int) []types.PageResult {
 				wgInner.Wait()
 				duration := time.Since(start)
 
-				results[i] = types.PageResult{
+				results[i] = &types.PageResult{
 					URL:      url,
-					Mobile:   mobile,
-					Desktop:  desktop,
+					Mobile:   &mobile,
+					Desktop:  &desktop,
 					Duration: duration,
 				}
 

@@ -33,10 +33,10 @@ type ReportSummary struct {
 	FailedPages       int
 	AverageScores     map[string]float64
 	ScoreDistribution map[string][]int // good, needs-improvement, poor counts
-	FastestPage       *Result
-	SlowestPage       *Result
-	BestPerformance   *Result
-	WorstPerformance  *Result
+	FastestPage       *PageResult
+	SlowestPage       *PageResult
+	BestPerformance   *PageResult
+	WorstPerformance  *PageResult
 }
 
 // ReportData represents the complete report structure

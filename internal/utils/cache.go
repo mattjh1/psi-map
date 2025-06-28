@@ -33,6 +33,8 @@ type SitemapCacheIndex struct {
 	LastUpdated time.Time         `json:"last_updated"`
 }
 
+var CacheDir = getCacheDir
+
 func getCacheDir() (string, error) {
 	var cacheDir string
 	switch runtime.GOOS {
@@ -153,7 +155,7 @@ func saveURLCacheEntry(filename string, entry *URLCacheEntry) error {
 	return nil
 }
 
-func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]types.PageResult, []string, error) {
+func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]*types.PageResult, []string, error) {
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return nil, urls, err
@@ -180,7 +182,7 @@ func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]types.Pag
 	}
 
 	now := time.Now()
-	cached := make([]types.PageResult, 0)
+	cached := make([]*types.PageResult, 0)
 	missing := make([]string, 0)
 
 	for _, url := range urls {
@@ -205,13 +207,13 @@ func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]types.Pag
 				continue
 			}
 		}
-		cached = append(cached, entry.Result)
+		cached = append(cached, &entry.Result)
 	}
 
 	return cached, missing, nil
 }
 
-func SaveURLCache(sitemapPath string, allURLs []string, newResults []types.PageResult) error {
+func SaveURLCache(sitemapPath string, allURLs []string, newResults []*types.PageResult) error {
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return err
@@ -236,7 +238,7 @@ func SaveURLCache(sitemapPath string, allURLs []string, newResults []types.PageR
 	for _, result := range newResults {
 		entry := URLCacheEntry{
 			URL:        result.URL,
-			Result:     result,
+			Result:     *result,
 			Timestamp:  time.Now(),
 			SitemapURL: sitemapPath,
 		}
@@ -306,7 +308,7 @@ func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 					totalSize += fileInfo.Size()
 				}
 
-				if score := extractPerformanceScore(urlEntry.Result); score > 0 {
+				if score := extractPerformanceScore(&urlEntry.Result); score > 0 {
 					totalScore += score
 					scoreCount++
 				}
@@ -497,10 +499,10 @@ func GetURLCacheDetails(sitemapHash string, ttlHours int) ([]types.URLCacheDetai
 			Age:              formatDuration(age),
 			IsExpired:        isExpired,
 			IsStale:          isStale,
-			PerformanceScore: extractPerformanceScore(urlEntry.Result),
+			PerformanceScore: extractPerformanceScore(&urlEntry.Result),
 			CacheSize:        cacheSize,
 			Timestamp:        urlEntry.Timestamp,
-			HasErrors:        hasErrors(urlEntry.Result),
+			HasErrors:        hasErrors(&urlEntry.Result),
 		}
 		details = append(details, detail)
 	}
@@ -512,27 +514,33 @@ func GetURLCacheDetails(sitemapHash string, ttlHours int) ([]types.URLCacheDetai
 	return details, nil
 }
 
-func extractPerformanceScore(result types.PageResult) float64 {
-	if result.Mobile.Scores != nil && result.Mobile.Scores.Performance > 0 {
+func extractPerformanceScore(result *types.PageResult) float64 {
+	if result == nil {
+		return 0.0
+	}
+	if result.Mobile != nil && result.Mobile.Scores != nil && result.Mobile.Scores.Performance > 0 {
 		return result.Mobile.Scores.Performance
 	}
-	if result.Desktop.Scores != nil && result.Desktop.Scores.Performance > 0 {
+	if result.Desktop != nil && result.Desktop.Scores != nil && result.Desktop.Scores.Performance > 0 {
 		return result.Desktop.Scores.Performance
 	}
 	return 0.0
 }
 
-func hasErrors(result types.PageResult) bool {
-	if result.Mobile.Error != nil || result.Desktop.Error != nil {
+func hasErrors(result *types.PageResult) bool {
+	if result == nil {
+		return true // Consider a nil result as having errors
+	}
+	if result.Mobile != nil && result.Mobile.Error != nil || result.Desktop != nil && result.Desktop.Error != nil {
 		return true
 	}
-	if result.Mobile.Scores == nil && result.Desktop.Scores == nil {
+	if result.Mobile == nil && result.Desktop == nil {
 		return true
 	}
-	if result.Mobile.Scores != nil && result.Mobile.Scores.Performance < 50 {
+	if result.Mobile != nil && result.Mobile.Scores != nil && result.Mobile.Scores.Performance < 50 {
 		return true
 	}
-	if result.Desktop.Scores != nil && result.Desktop.Scores.Performance < 50 {
+	if result.Desktop != nil && result.Desktop.Scores != nil && result.Desktop.Scores.Performance < 50 {
 		return true
 	}
 	return false

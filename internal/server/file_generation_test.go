@@ -5,14 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/mattjh1/psi-map/internal/types"
 )
 
 func TestGenerateHTMLFile(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example.com", 90, 85, 80, 95, false),
 	}
 
@@ -39,7 +38,7 @@ func TestGenerateHTMLFile(t *testing.T) {
 }
 
 func TestGenerateHTMLFile_WithMultipleResults(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false),
 		createMockResult("https://example2.com", 70, 75, 65, 80, false),
 		createResultWithMetrics("https://example3.com", 85),
@@ -66,7 +65,7 @@ func TestGenerateHTMLFile_WithMultipleResults(t *testing.T) {
 }
 
 func TestGenerateHTMLFile_WithEmptyResults(t *testing.T) {
-	results := []types.PageResult{}
+	results := []*types.PageResult{}
 
 	tempDir := t.TempDir()
 	filename := filepath.Join(tempDir, "empty-report.html")
@@ -84,19 +83,18 @@ func TestGenerateHTMLFile_WithEmptyResults(t *testing.T) {
 }
 
 func TestGenerateHTMLFile_InvalidPath(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example.com", 90, 85, 80, 95, false),
 	}
 
 	// Try to write to a non-existent directory without creating parent dirs
 	invalidPath := "/nonexistent/directory/report.html"
-
 	err := GenerateHTMLFile(results, invalidPath)
 	assert.Error(t, err)
 }
 
 func TestGenerateHTMLFile_WithErrorResults(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://success.com", 90, 85, 80, 95, false),
 		createMockResult("https://error.com", 0, 0, 0, 0, true),
 		createResultWithPartialSuccess("https://partial.com", true, false),

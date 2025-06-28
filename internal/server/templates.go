@@ -90,7 +90,7 @@ func getScoreClass(score float64) string {
 	}
 }
 
-func hasMetrics(result types.Result) bool {
+func hasMetrics(result *types.Result) bool {
 	return result.Metrics != nil
 }
 
@@ -130,7 +130,7 @@ func dict(values ...any) map[string]any {
 	return dict
 }
 
-func getResult(page types.PageResult, strategy string) types.Result {
+func getResult(page *types.PageResult, strategy string) *types.Result {
 	if strategy == "mobile" {
 		return page.Mobile
 	}

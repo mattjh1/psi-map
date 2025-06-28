@@ -8,7 +8,7 @@ import (
 )
 
 // Test data helpers
-func createMockResult(url string, perfScore, accScore, bpScore, seoScore float64, hasError bool) types.PageResult {
+func createMockResult(url string, perfScore, accScore, bpScore, seoScore float64, hasError bool) *types.PageResult {
 	var mobileErr, desktopErr error
 	if hasError {
 		mobileErr = fmt.Errorf("mock error")
@@ -22,13 +22,13 @@ func createMockResult(url string, perfScore, accScore, bpScore, seoScore float64
 		SEO:           seoScore,
 	}
 
-	return types.PageResult{
+	return &types.PageResult{
 		URL: url,
-		Mobile: types.Result{
+		Mobile: &types.Result{
 			Scores: scores,
 			Error:  mobileErr,
 		},
-		Desktop: types.Result{
+		Desktop: &types.Result{
 			Scores: scores,
 			Error:  desktopErr,
 		},
@@ -36,10 +36,10 @@ func createMockResult(url string, perfScore, accScore, bpScore, seoScore float64
 	}
 }
 
-func createResultWithMetrics(url string, perfScore float64) types.PageResult {
-	return types.PageResult{
+func createResultWithMetrics(url string, perfScore float64) *types.PageResult {
+	return &types.PageResult{
 		URL: url,
-		Mobile: types.Result{
+		Mobile: &types.Result{
 			Scores: &types.CategoryScores{
 				Performance:   perfScore,
 				Accessibility: 90,
@@ -60,7 +60,7 @@ func createResultWithMetrics(url string, perfScore float64) types.PageResult {
 			},
 			Error: nil,
 		},
-		Desktop: types.Result{
+		Desktop: &types.Result{
 			Scores: &types.CategoryScores{
 				Performance:   perfScore,
 				Accessibility: 95,
@@ -73,7 +73,7 @@ func createResultWithMetrics(url string, perfScore float64) types.PageResult {
 	}
 }
 
-func createResultWithPartialSuccess(url string, mobileSuccess, desktopSuccess bool) types.PageResult {
+func createResultWithPartialSuccess(url string, mobileSuccess, desktopSuccess bool) *types.PageResult {
 	var mobileErr, desktopErr error
 	var mobileScores, desktopScores *types.CategoryScores
 
@@ -99,13 +99,13 @@ func createResultWithPartialSuccess(url string, mobileSuccess, desktopSuccess bo
 		desktopErr = fmt.Errorf("desktop error")
 	}
 
-	return types.PageResult{
+	return &types.PageResult{
 		URL: url,
-		Mobile: types.Result{
+		Mobile: &types.Result{
 			Scores: mobileScores,
 			Error:  mobileErr,
 		},
-		Desktop: types.Result{
+		Desktop: &types.Result{
 			Scores: desktopScores,
 			Error:  desktopErr,
 		},

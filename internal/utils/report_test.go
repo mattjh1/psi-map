@@ -16,11 +16,11 @@ import (
 )
 
 // Mock server.GenerateHTMLFile
-var mockGenerateHTMLFile func(results []types.PageResult, filename string) error
+var mockGenerateHTMLFile func(results []*types.PageResult, filename string) error
 
 func init() {
 	// Replace the actual function with a mock for testing
-	serverGenerateHTMLFile = func(results []types.PageResult, filename string) error {
+	serverGenerateHTMLFile = func(results []*types.PageResult, filename string) error {
 		if mockGenerateHTMLFile != nil {
 			return mockGenerateHTMLFile(results, filename)
 		}
@@ -29,7 +29,7 @@ func init() {
 }
 
 func TestSaveJSONReport(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		{URL: "http://example.com/page1"},
 		{URL: "http://example.com/page2"},
 	}
@@ -42,14 +42,14 @@ func TestSaveJSONReport(t *testing.T) {
 	content, err := os.ReadFile(filename)
 	assert.NoError(t, err)
 
-	var decodedResults []types.PageResult
+	var decodedResults []*types.PageResult
 	err = json.Unmarshal(content, &decodedResults)
 	assert.NoError(t, err)
 	assert.Equal(t, results, decodedResults)
 }
 
 func TestSaveJSONToStdout(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		{URL: "http://example.com/stdout1"},
 	}
 
@@ -64,18 +64,18 @@ func TestSaveJSONToStdout(t *testing.T) {
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
-	var decodedResults []types.PageResult
+	var decodedResults []*types.PageResult
 	err = json.Unmarshal(out, &decodedResults)
 	assert.NoError(t, err)
 	assert.Equal(t, results, decodedResults)
 }
 
 func TestSaveHTMLReport(t *testing.T) {
-	results := []types.PageResult{{URL: "http://example.com/html"}}
+	results := []*types.PageResult{{URL: "http://example.com/html"}}
 	filename := "test_report.html"
 
 	// Set the mock to return no error
-	mockGenerateHTMLFile = func(r []types.PageResult, f string) error {
+	mockGenerateHTMLFile = func(r []*types.PageResult, f string) error {
 		assert.Equal(t, results, r)
 		assert.Equal(t, filename, f)
 		return nil
@@ -85,7 +85,7 @@ func TestSaveHTMLReport(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Set the mock to return an error
-	mockGenerateHTMLFile = func(r []types.PageResult, f string) error {
+	mockGenerateHTMLFile = func(r []*types.PageResult, f string) error {
 		return fmt.Errorf("mock HTML generation error")
 	}
 
@@ -107,11 +107,11 @@ func TestPrintSummary(t *testing.T) {
 	var buf bytes.Buffer
 	logger.Init(logger.WithOutput(&buf)) // Ensure singleton is also mocked
 
-	results := []types.PageResult{
-		{URL: "http://example.com/good", Mobile: types.Result{Scores: &types.CategoryScores{Performance: 95, Accessibility: 90, BestPractices: 85, SEO: 80}}},
-		{URL: "http://example.com/needs_improvement", Mobile: types.Result{Scores: &types.CategoryScores{Performance: 60, Accessibility: 65, BestPractices: 70, SEO: 75}}},
-		{URL: "http://example.com/poor", Mobile: types.Result{Scores: &types.CategoryScores{Performance: 30, Accessibility: 35, BestPractices: 40, SEO: 45}}},
-		{URL: "http://example.com/failed", Mobile: types.Result{Error: fmt.Errorf("failed to analyze")}, Desktop: types.Result{Error: fmt.Errorf("failed to analyze")}},
+	results := []*types.PageResult{
+		{URL: "http://example.com/good", Mobile: &types.Result{Scores: &types.CategoryScores{Performance: 95, Accessibility: 90, BestPractices: 85, SEO: 80}}},
+		{URL: "http://example.com/needs_improvement", Mobile: &types.Result{Scores: &types.CategoryScores{Performance: 60, Accessibility: 65, BestPractices: 70, SEO: 75}}},
+		{URL: "http://example.com/poor", Mobile: &types.Result{Scores: &types.CategoryScores{Performance: 30, Accessibility: 35, BestPractices: 40, SEO: 45}}},
+		{URL: "http://example.com/failed", Mobile: &types.Result{Error: fmt.Errorf("failed to analyze")}, Desktop: &types.Result{Error: fmt.Errorf("failed to analyze")}},
 	}
 	elapsed := 10 * time.Second
 

@@ -107,51 +107,16 @@ func cacheListCommand(c *cli.Context) error {
 	data := make([][]string, 0)
 	totalURLs, totalSize := 0, int64(0)
 
-	for _, info := range cacheInfos {
-		status := "VALID"
-		if info.IsExpired {
-			status = "EXPIRED"
-		} else if info.StaleCount > 0 {
-			status = "MIXED"
-		}
-
-		sitemap := truncateURL(info.SitemapURL, 60)
-		urlsInfo := fmt.Sprintf("(%d URLs: %d valid, %d stale, %d expired)",
-			info.URLCount, info.ValidCount, info.StaleCount, info.ExpiredCount)
-
-		sitemapRow := []string{
-			"📊 SITEMAP",
-			info.Age,
-			status,
-			fmt.Sprintf("%s %s", sitemap, urlsInfo),
-			info.Hash + "...",
-		}
-
-		if verbose {
-			sitemapRow = append(sitemapRow, formatBytes(info.TotalSize))
-		}
+	for i := range cacheInfos {
+		info := &cacheInfos[i]
+		sitemapRow := generateSitemapRow(info, verbose)
 		data = append(data, sitemapRow)
 
 		urlDetails, err := utils.GetURLCacheDetails(info.FullHash, ttl)
 		if err == nil {
-			for _, urlInfo := range urlDetails {
-				urlStatus := getStatusIcon(urlInfo)
-				url := truncateURL(urlInfo.URL, 70)
-				scoreStr := ""
-				if urlInfo.PerformanceScore > 0 {
-					scoreStr = fmt.Sprintf("%d", int(math.Round(urlInfo.PerformanceScore)))
-				}
-
-				urlRow := []string{
-					"  └─ URL",
-					urlInfo.Age,
-					urlStatus,
-					url,
-					scoreStr,
-				}
-				if verbose {
-					urlRow = append(urlRow, formatBytes(urlInfo.CacheSize))
-				}
+			for i := range urlDetails {
+				urlInfo := &urlDetails[i]
+				urlRow := generateURLRow(urlInfo, verbose)
 				data = append(data, urlRow)
 			}
 		}
@@ -175,6 +140,53 @@ func cacheListCommand(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func generateSitemapRow(info *types.CacheInfo, verbose bool) []string {
+	status := "VALID"
+	if info.IsExpired {
+		status = "EXPIRED"
+	} else if info.StaleCount > 0 {
+		status = "MIXED"
+	}
+
+	sitemap := truncateURL(info.SitemapURL, 60)
+	urlsInfo := fmt.Sprintf("(%d URLs: %d valid, %d stale, %d expired)",
+		info.URLCount, info.ValidCount, info.StaleCount, info.ExpiredCount)
+
+	sitemapRow := []string{
+		"📊 SITEMAP",
+		info.Age,
+		status,
+		fmt.Sprintf("%s %s", sitemap, urlsInfo),
+		info.Hash + "...",
+	}
+
+	if verbose {
+		sitemapRow = append(sitemapRow, formatBytes(info.TotalSize))
+	}
+	return sitemapRow
+}
+
+func generateURLRow(urlInfo *types.URLCacheDetail, verbose bool) []string {
+	urlStatus := getStatusIcon(urlInfo)
+	url := truncateURL(urlInfo.URL, 70)
+	scoreStr := ""
+	if urlInfo.PerformanceScore > 0 {
+		scoreStr = fmt.Sprintf("%d", int(math.Round(urlInfo.PerformanceScore)))
+	}
+
+	urlRow := []string{
+		"  └─ URL",
+		urlInfo.Age,
+		urlStatus,
+		url,
+		scoreStr,
+	}
+	if verbose {
+		urlRow = append(urlRow, formatBytes(urlInfo.CacheSize))
+	}
+	return urlRow
 }
 
 func cacheCleanCommand(c *cli.Context) error {
@@ -249,7 +261,7 @@ func cacheClearCommand(c *cli.Context) error {
 }
 
 // Helper functions
-func getStatusIcon(detail types.URLCacheDetail) string {
+func getStatusIcon(detail *types.URLCacheDetail) string {
 	if detail.IsExpired {
 		return "EXP"
 	} else if detail.IsStale {

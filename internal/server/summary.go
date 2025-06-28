@@ -27,11 +27,16 @@ func (s *Server) generateSummary() types.ReportSummary {
 		summary.ScoreDistribution[cat] = []int{0, 0, 0}
 	}
 
-	for i := range s.results {
-		pageResult := &s.results[i]
+	for _, pageResult := range s.results {
+		if pageResult == nil {
+			continue // Skip nil page results
+		}
 
-		// Count this as successful if either mobile or desktop succeeded
-		if pageResult.Mobile.Error == nil || pageResult.Desktop.Error == nil {
+		// Check if either mobile or desktop succeeded
+		mobileSuccess := pageResult.Mobile != nil && pageResult.Mobile.Error == nil
+		desktopSuccess := pageResult.Desktop != nil && pageResult.Desktop.Error == nil
+
+		if mobileSuccess || desktopSuccess {
 			summary.SuccessfulPages++
 		} else {
 			summary.FailedPages++
@@ -41,20 +46,20 @@ func (s *Server) generateSummary() types.ReportSummary {
 		// Track timing
 		if pageResult.Duration < fastestTime {
 			fastestTime = pageResult.Duration
-			summary.FastestPage = &pageResult.Mobile // or create a new PageResult reference
+			summary.FastestPage = pageResult
 		}
 		if pageResult.Duration > slowestTime {
 			slowestTime = pageResult.Duration
-			summary.SlowestPage = &pageResult.Mobile
+			summary.SlowestPage = pageResult
 		}
 
-		// Process mobile scores
-		if pageResult.Mobile.Error == nil && pageResult.Mobile.Scores != nil {
+		// Process mobile scores if available
+		if pageResult.Mobile != nil && pageResult.Mobile.Error == nil && pageResult.Mobile.Scores != nil {
 			s.processScores(pageResult.Mobile.Scores, totalScores, scoreCounts, summary.ScoreDistribution)
 		}
 
-		// Process desktop scores
-		if pageResult.Desktop.Error == nil && pageResult.Desktop.Scores != nil {
+		// Process desktop scores if available
+		if pageResult.Desktop != nil && pageResult.Desktop.Error == nil && pageResult.Desktop.Scores != nil {
 			s.processScores(pageResult.Desktop.Scores, totalScores, scoreCounts, summary.ScoreDistribution)
 		}
 	}
@@ -99,7 +104,7 @@ func (s *Server) processScores(scores *types.CategoryScores, totalScores map[str
 }
 
 // GenerateSummary creates a summary from results without needing a server instance
-func GenerateSummary(results []types.PageResult) types.ReportSummary {
+func GenerateSummary(results []*types.PageResult) types.ReportSummary {
 	s := &Server{results: results}
 	return s.generateSummary()
 }

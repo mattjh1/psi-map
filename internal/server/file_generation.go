@@ -9,7 +9,7 @@ import (
 )
 
 // GenerateHTMLFile generates an HTML file from results without starting a server
-func GenerateHTMLFile(results []types.PageResult, filename string) error {
+func GenerateHTMLFile(results []*types.PageResult, filename string) error {
 	tmpl, err := loadReportTemplateFromFS()
 	if err != nil {
 		return fmt.Errorf("template parsing error: %v", err)
@@ -24,7 +24,7 @@ func GenerateHTMLFile(results []types.PageResult, filename string) error {
 	s := &Server{results: results}
 
 	data := struct {
-		Results   []types.PageResult
+		Results   []*types.PageResult
 		Summary   types.ReportSummary
 		Generated time.Time
 	}{

@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateSummary_EmptyResults(t *testing.T) {
-	server := &Server{results: []types.PageResult{}}
+	server := &Server{results: []*types.PageResult{}}
 
 	summary := server.generateSummary()
 
@@ -28,7 +28,7 @@ func TestGenerateSummary_EmptyResults(t *testing.T) {
 }
 
 func TestGenerateSummary_AllSuccessfulResults(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 95, 90, 85, 98, false), // good scores
 		createMockResult("https://example2.com", 75, 80, 70, 85, false), // mixed scores
 		createMockResult("https://example3.com", 45, 50, 40, 55, false), // poor scores
@@ -56,7 +56,7 @@ func TestGenerateSummary_AllSuccessfulResults(t *testing.T) {
 }
 
 func TestGenerateSummary_MixedSuccessAndErrors(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false), // success
 		createMockResult("https://example2.com", 70, 75, 65, 80, true),  // both mobile and desktop error
 		createMockResult("https://example3.com", 40, 45, 50, 55, false), // success
@@ -75,7 +75,7 @@ func TestGenerateSummary_MixedSuccessAndErrors(t *testing.T) {
 }
 
 func TestGenerateSummary_PartialSuccessResults(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createResultWithPartialSuccess("https://example1.com", true, false),  // mobile success, desktop error
 		createResultWithPartialSuccess("https://example2.com", false, true),  // mobile error, desktop success
 		createResultWithPartialSuccess("https://example3.com", false, false), // both error
@@ -94,7 +94,7 @@ func TestGenerateSummary_PartialSuccessResults(t *testing.T) {
 }
 
 func TestGenerateSummary_ZeroScores(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 0, 85, 90, 95, false), // zero performance score
 		createMockResult("https://example2.com", 90, 0, 80, 85, false), // zero accessibility score
 	}
@@ -153,24 +153,24 @@ func TestProcessScores(t *testing.T) {
 }
 
 func TestGenerateSummary_FastestAndSlowestPages(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		{
 			URL:      "https://fast.com",
 			Duration: 50 * time.Millisecond,
-			Mobile:   types.Result{Scores: &types.CategoryScores{Performance: 90}, Error: nil},
-			Desktop:  types.Result{Scores: &types.CategoryScores{Performance: 95}, Error: nil},
+			Mobile:   &types.Result{Scores: &types.CategoryScores{Performance: 90}, Error: nil},
+			Desktop:  &types.Result{Scores: &types.CategoryScores{Performance: 95}, Error: nil},
 		},
 		{
 			URL:      "https://slow.com",
 			Duration: 500 * time.Millisecond,
-			Mobile:   types.Result{Scores: &types.CategoryScores{Performance: 80}, Error: nil},
-			Desktop:  types.Result{Scores: &types.CategoryScores{Performance: 85}, Error: nil},
+			Mobile:   &types.Result{Scores: &types.CategoryScores{Performance: 80}, Error: nil},
+			Desktop:  &types.Result{Scores: &types.CategoryScores{Performance: 85}, Error: nil},
 		},
 		{
 			URL:      "https://medium.com",
 			Duration: 200 * time.Millisecond,
-			Mobile:   types.Result{Scores: &types.CategoryScores{Performance: 75}, Error: nil},
-			Desktop:  types.Result{Scores: &types.CategoryScores{Performance: 80}, Error: nil},
+			Mobile:   &types.Result{Scores: &types.CategoryScores{Performance: 75}, Error: nil},
+			Desktop:  &types.Result{Scores: &types.CategoryScores{Performance: 80}, Error: nil},
 		},
 	}
 
@@ -182,15 +182,15 @@ func TestGenerateSummary_FastestAndSlowestPages(t *testing.T) {
 	assert.NotNil(t, summary.FastestPage)
 	assert.NotNil(t, summary.SlowestPage)
 
-	// The fastest page should have performance score 90 (mobile score from fast.com)
-	assert.Equal(t, 90.0, summary.FastestPage.Scores.Performance)
+	// The fastest page should have performance score 95
+	assert.Equal(t, 95.0, summary.FastestPage.GetRelevantScores().Performance)
 
-	// The slowest page should have performance score 80 (mobile score from slow.com)
-	assert.Equal(t, 80.0, summary.SlowestPage.Scores.Performance)
+	// The slowest page should have performance score 85
+	assert.Equal(t, 85.0, summary.SlowestPage.GetRelevantScores().Performance)
 }
 
 func TestGenerateSummary_PublicFunction(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false),
 		createMockResult("https://example2.com", 70, 75, 65, 80, false),
 	}

@@ -91,7 +91,7 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 		log.Tagged("CACHE", "No cached results found, analyzing all %d URLs", "📊", missingCount)
 	}
 
-	var newResults []types.PageResult
+	var newResults []*types.PageResult
 
 	// Only analyze missing URLs
 	if missingCount > 0 {
@@ -116,7 +116,7 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 }
 
 // combineResults merges cached and new results, maintaining URL order from sitemap
-func combineResults(cached, fresh []types.PageResult) []types.PageResult {
+func combineResults(cached, fresh []*types.PageResult) []*types.PageResult {
 	if len(cached) == 0 {
 		return fresh
 	}
@@ -125,7 +125,7 @@ func combineResults(cached, fresh []types.PageResult) []types.PageResult {
 	}
 
 	// Create a map for quick lookup of all results by URL
-	resultMap := make(map[string]types.PageResult)
+	resultMap := make(map[string]*types.PageResult)
 
 	// Add cached results
 	for _, result := range cached {
@@ -138,7 +138,7 @@ func combineResults(cached, fresh []types.PageResult) []types.PageResult {
 	}
 
 	// Convert map back to slice
-	combined := make([]types.PageResult, 0, len(resultMap))
+	combined := make([]*types.PageResult, 0, len(resultMap))
 	for _, result := range resultMap {
 		combined = append(combined, result)
 	}
@@ -147,7 +147,7 @@ func combineResults(cached, fresh []types.PageResult) []types.PageResult {
 }
 
 // handleOutput processes the results based on the configuration
-func handleOutput(config *types.AnalysisConfig, results []types.PageResult, elapsed time.Duration) error {
+func handleOutput(config *types.AnalysisConfig, results []*types.PageResult, elapsed time.Duration) error {
 	log := logger.GetLogger()
 
 	switch {

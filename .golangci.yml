@@ -20,12 +20,6 @@ linters-settings:
     disabled-checks:
       - commentedOutCode
       - ifElseChain  
-    settings:
-      # TODO: fixes the issues requiring this large thresholds
-      hugeParam:
-        sizeThreshold: 300
-      rangeValCopy:
-        sizeThreshold: 300
   
   gofumpt:
     extra-rules: true

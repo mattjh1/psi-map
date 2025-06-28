@@ -49,63 +49,63 @@ func TestGetSitemapIndexFilename(t *testing.T) {
 
 func TestExtractPerformanceScore(t *testing.T) {
 	// Test with mobile score
-	result1 := types.PageResult{
-		Mobile: types.Result{Scores: &types.CategoryScores{Performance: 90.5}},
+	result1 := &types.PageResult{
+		Mobile: &types.Result{Scores: &types.CategoryScores{Performance: 90.5}},
 	}
 	assert.Equal(t, 90.5, extractPerformanceScore(result1))
 
 	// Test with desktop score (mobile is 0)
-	result2 := types.PageResult{
-		Mobile:  types.Result{Scores: &types.CategoryScores{Performance: 0}},
-		Desktop: types.Result{Scores: &types.CategoryScores{Performance: 85.0}},
+	result2 := &types.PageResult{
+		Mobile:  &types.Result{Scores: &types.CategoryScores{Performance: 0}},
+		Desktop: &types.Result{Scores: &types.CategoryScores{Performance: 85.0}},
 	}
 	assert.Equal(t, 85.0, extractPerformanceScore(result2))
 
 	// Test with no scores
-	result3 := types.PageResult{}
+	result3 := &types.PageResult{}
 	assert.Equal(t, 0.0, extractPerformanceScore(result3))
 
 	// Test with both scores, mobile should be preferred
-	result4 := types.PageResult{
-		Mobile:  types.Result{Scores: &types.CategoryScores{Performance: 95.0}},
-		Desktop: types.Result{Scores: &types.CategoryScores{Performance: 80.0}},
+	result4 := &types.PageResult{
+		Mobile:  &types.Result{Scores: &types.CategoryScores{Performance: 95.0}},
+		Desktop: &types.Result{Scores: &types.CategoryScores{Performance: 80.0}},
 	}
 	assert.Equal(t, 95.0, extractPerformanceScore(result4))
 }
 
 func TestHasErrors(t *testing.T) {
 	// Test with mobile error
-	result1 := types.PageResult{
-		Mobile: types.Result{Error: fmt.Errorf("mobile error")},
+	result1 := &types.PageResult{
+		Mobile: &types.Result{Error: fmt.Errorf("mobile error")},
 	}
 	assert.True(t, hasErrors(result1))
 
 	// Test with desktop error
-	result2 := types.PageResult{
-		Desktop: types.Result{Error: fmt.Errorf("desktop error")},
+	result2 := &types.PageResult{
+		Desktop: &types.Result{Error: fmt.Errorf("desktop error")},
 	}
 	assert.True(t, hasErrors(result2))
 
 	// Test with no scores (implies error)
-	result3 := types.PageResult{}
+	result3 := &types.PageResult{}
 	assert.True(t, hasErrors(result3))
 
 	// Test with low mobile performance score
-	result4 := types.PageResult{
-		Mobile: types.Result{Scores: &types.CategoryScores{Performance: 49}},
+	result4 := &types.PageResult{
+		Mobile: &types.Result{Scores: &types.CategoryScores{Performance: 49}},
 	}
 	assert.True(t, hasErrors(result4))
 
 	// Test with low desktop performance score
-	result5 := types.PageResult{
-		Desktop: types.Result{Scores: &types.CategoryScores{Performance: 49}},
+	result5 := &types.PageResult{
+		Desktop: &types.Result{Scores: &types.CategoryScores{Performance: 49}},
 	}
 	assert.True(t, hasErrors(result5))
 
 	// Test with no errors and good scores
-	result6 := types.PageResult{
-		Mobile:  types.Result{Scores: &types.CategoryScores{Performance: 90}},
-		Desktop: types.Result{Scores: &types.CategoryScores{Performance: 80}},
+	result6 := &types.PageResult{
+		Mobile:  &types.Result{Scores: &types.CategoryScores{Performance: 90}},
+		Desktop: &types.Result{Scores: &types.CategoryScores{Performance: 80}},
 	}
 	assert.False(t, hasErrors(result6))
 }

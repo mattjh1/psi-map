@@ -13,7 +13,7 @@ import (
 )
 
 func TestHandleAPIResults(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false),
 		createMockResult("https://example2.com", 70, 75, 65, 80, false),
 	}
@@ -38,7 +38,7 @@ func TestHandleAPIResults(t *testing.T) {
 }
 
 func TestHandleAPIResult_ValidIndex(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false),
 		createMockResult("https://example2.com", 70, 75, 65, 80, false),
 	}
@@ -62,7 +62,7 @@ func TestHandleAPIResult_ValidIndex(t *testing.T) {
 }
 
 func TestHandleAPIResult_InvalidIndex(t *testing.T) {
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createMockResult("https://example1.com", 90, 85, 80, 95, false),
 	}
 

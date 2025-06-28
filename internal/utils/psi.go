@@ -87,7 +87,7 @@ func FetchScoreImpl(ctx context.Context, pageURL, strategy string) types.Result 
 		}
 	}
 
-	return extractResultData(data, pageURL, strategy, time.Since(start))
+	return extractResultData(&data, pageURL, strategy, time.Since(start))
 }
 
 // If you want to provide a convenience function without context for backward compatibility:
@@ -102,7 +102,7 @@ func FetchScore(pageURL, strategy string) types.Result {
 }
 
 // extractResultData processes the PSI response into our Result struct
-func extractResultData(data psi.PSIResponse, pageURL, strategy string, elapsed time.Duration) types.Result {
+func extractResultData(data *psi.PSIResponse, pageURL, strategy string, elapsed time.Duration) types.Result {
 	result := types.Result{
 		URL:      pageURL,
 		Strategy: strategy,

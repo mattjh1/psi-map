@@ -31,7 +31,7 @@ func TestLoadReportTemplateFromFS(t *testing.T) {
 
 func TestHandleReport_TemplateExecution(t *testing.T) {
 	// Create mock results
-	results := []types.PageResult{
+	results := []*types.PageResult{
 		createResultWithMetrics("https://example.com", 85),
 	}
 
@@ -95,24 +95,24 @@ func TestTemplateHelperFunctions(t *testing.T) {
 		resultWithMetrics := types.Result{
 			Metrics: &types.Metrics{},
 		}
-		assert.True(t, hasMetrics(resultWithMetrics))
+		assert.True(t, hasMetrics(&resultWithMetrics))
 
 		resultWithoutMetrics := types.Result{
 			Metrics: nil,
 		}
-		assert.False(t, hasMetrics(resultWithoutMetrics))
+		assert.False(t, hasMetrics(&resultWithoutMetrics))
 	})
 
 	t.Run("getResult", func(t *testing.T) {
 		page := types.PageResult{
-			Mobile:  types.Result{Scores: &types.CategoryScores{Performance: 80}},
-			Desktop: types.Result{Scores: &types.CategoryScores{Performance: 90}},
+			Mobile:  &types.Result{Scores: &types.CategoryScores{Performance: 80}},
+			Desktop: &types.Result{Scores: &types.CategoryScores{Performance: 90}},
 		}
 
-		mobileResult := getResult(page, "mobile")
+		mobileResult := getResult(&page, "mobile")
 		assert.Equal(t, 80.0, mobileResult.Scores.Performance)
 
-		desktopResult := getResult(page, "desktop")
+		desktopResult := getResult(&page, "desktop")
 		assert.Equal(t, 90.0, desktopResult.Scores.Performance)
 	})
 }

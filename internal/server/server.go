@@ -23,13 +23,13 @@ import (
 )
 
 type Server struct {
-	results []types.PageResult
+	results []*types.PageResult
 	port    string
 	server  *http.Server
 }
 
 // Start initializes and starts the web server
-func Start(results []types.PageResult, port string) error {
+func Start(results []*types.PageResult, port string) error {
 	log := logger.GetLogger()
 
 	// Find an available port if the default is taken
@@ -91,7 +91,7 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Results   []types.PageResult
+		Results   []*types.PageResult
 		Summary   types.ReportSummary
 		Generated time.Time
 	}{
@@ -182,7 +182,7 @@ func (s *Server) handleReportData(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger()
 
 	data := struct {
-		Results []types.PageResult  `json:"results"`
+		Results []*types.PageResult `json:"results"`
 		Summary types.ReportSummary `json:"summary"`
 	}{
 		Results: s.results,

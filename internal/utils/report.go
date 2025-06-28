@@ -14,7 +14,7 @@ import (
 // serverGenerateHTMLFile is a package-level variable to allow mocking in tests
 var serverGenerateHTMLFile = server.GenerateHTMLFile
 
-func SaveJSONReport(results []types.PageResult, filename string) error {
+func SaveJSONReport(results []*types.PageResult, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create JSON file: %v", err)
@@ -30,7 +30,7 @@ func SaveJSONReport(results []types.PageResult, filename string) error {
 }
 
 // SaveJSONToStdout outputs JSON results to stdout for piping
-func SaveJSONToStdout(results []types.PageResult) error {
+func SaveJSONToStdout(results []*types.PageResult) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(results); err != nil {
@@ -40,7 +40,7 @@ func SaveJSONToStdout(results []types.PageResult) error {
 }
 
 // SaveHTMLReport generates HTML report using the server's template and functions
-func SaveHTMLReport(results []types.PageResult, filename string) error {
+func SaveHTMLReport(results []*types.PageResult, filename string) error {
 	if err := serverGenerateHTMLFile(results, filename); err != nil {
 		return fmt.Errorf("failed to generate HTML report %s: %w", filename, err)
 	}
@@ -48,7 +48,7 @@ func SaveHTMLReport(results []types.PageResult, filename string) error {
 }
 
 // PrintSummary prints a summary to console using server's summary generation
-func PrintSummary(results []types.PageResult, elapsed time.Duration) {
+func PrintSummary(results []*types.PageResult, elapsed time.Duration) {
 	log := logger.GetLogger()
 	ui := log.UI()
 	summary := server.GenerateSummary(results)
