@@ -12,6 +12,7 @@ This document outlines the future direction of the `psi-map` project.
 ## 🚧 In Progress
 
 - **Test Coverage**: Increase unit and integration test coverage across the application to ensure stability and reliability.
+- **Performance Optimizations**: Refactoring critical components to support performance-sensitive configuration (e.g., `hugeParam`, `rangeValCopy`). This work involves significant architectural changes and has temporarily invalidated existing tests, which are being updated alongside the refactor.
 
 ## 🗓️ Planned
 
