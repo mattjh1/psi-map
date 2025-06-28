@@ -18,7 +18,7 @@ A command-line tool for batch PageSpeed Insights analysis using sitemap.xml file
 - Parse sitemap.xml files to extract URLs
 - Concurrent PageSpeed Insights analysis
 - Intelligent caching system
-- Multiple output formats (HTML, JSON, CSV)
+- Multiple output formats (HTML, JSON)
 - Cross-platform support
 
 ## Installation
