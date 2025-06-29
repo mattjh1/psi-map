@@ -256,6 +256,50 @@ func SaveURLCache(sitemapPath string, allURLs []string, newResults []*types.Page
 	return saveSitemapIndex(indexFile, index)
 }
 
+func getVerboseCacheInfo(cacheDir string, index *SitemapCacheIndex, ttlHours int) (validCount, expiredCount, staleCount int, totalSize int64, avgScore float64) {
+	scoreCount := 0
+	var totalScore float64
+	now := time.Now()
+	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
+
+	for _, filename := range index.URLs {
+		cacheFile := filepath.Join(cacheDir, "urls", filename)
+		urlEntry, err := loadURLCacheEntry(cacheFile)
+		if err != nil {
+			expiredCount++
+			continue
+		}
+
+		if fileInfo, err := os.Stat(cacheFile); err == nil {
+			totalSize += fileInfo.Size()
+		}
+
+		if score := extractPerformanceScore(&urlEntry.Result); score > 0 {
+			totalScore += score
+			scoreCount++
+		}
+
+		if ttlHours > 0 {
+			expiryTime := urlEntry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
+			if now.After(expiryTime) {
+				expiredCount++
+			} else if now.After(urlEntry.Timestamp.Add(stalePeriod)) {
+				staleCount++
+			} else {
+				validCount++
+			}
+		} else {
+			validCount++
+		}
+	}
+
+	if scoreCount > 0 {
+		avgScore = totalScore / float64(scoreCount)
+	}
+
+	return validCount, expiredCount, staleCount, totalSize, avgScore
+}
+
 func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 	cacheDir, err := getCacheDir()
 	if err != nil {
@@ -270,7 +314,6 @@ func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 
 	cacheInfos := make([]types.CacheInfo, 0, len(entries))
 	now := time.Now()
-	stalePeriod := time.Duration(float64(ttlHours)*0.5) * time.Hour
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "sitemap-") {
@@ -293,44 +336,7 @@ func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 		}
 
 		if verbose {
-			validCount, expiredCount, staleCount, totalSize, totalScore, avgScore := 0, 0, 0, int64(0), 0.0, 0.0
-			scoreCount := 0
-
-			for url := range index.URLs {
-				cacheFile := filepath.Join(cacheDir, "urls", index.URLs[url])
-				urlEntry, err := loadURLCacheEntry(cacheFile)
-				if err != nil {
-					expiredCount++
-					continue
-				}
-
-				if fileInfo, err := os.Stat(cacheFile); err == nil {
-					totalSize += fileInfo.Size()
-				}
-
-				if score := extractPerformanceScore(&urlEntry.Result); score > 0 {
-					totalScore += score
-					scoreCount++
-				}
-
-				if ttlHours > 0 {
-					expiryTime := urlEntry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
-					if now.After(expiryTime) {
-						expiredCount++
-					} else if now.After(urlEntry.Timestamp.Add(stalePeriod)) {
-						staleCount++
-					} else {
-						validCount++
-					}
-				} else {
-					validCount++
-				}
-			}
-
-			if scoreCount > 0 {
-				avgScore = totalScore / float64(scoreCount)
-			}
-
+			validCount, expiredCount, staleCount, totalSize, avgScore := getVerboseCacheInfo(cacheDir, index, ttlHours)
 			cacheInfo.ValidCount = validCount
 			cacheInfo.ExpiredCount = expiredCount
 			cacheInfo.StaleCount = staleCount
