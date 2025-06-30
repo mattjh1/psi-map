@@ -58,18 +58,10 @@ release:
   github:
     owner: mattjh1
     name: psi-map
-  name_template: "{{ if .IsNightly }}Nightly {{ .Date }}{{ else }}v{{ .Version }}{{ end }}"
+  name_template: "{{ if eq .Tag \"nightly\" }}Nightly Build{{ else }}v{{ .Version }}{{ end }}"
   draft: false
-  prerelease: "{{ or .IsSnapshot .IsNightly (contains .Version \"-\") }}"
-  make_latest: "{{ not (or .IsSnapshot .IsNightly) }}"
-
-# Nightly release configuration
-nightly:
-  name_template: "nightly-{{ .Date }}-{{ .ShortCommit }}"
-  tag_name: "nightly"
-  keep_single_release: true
-  # Publish nightly releases to GitHub
-  publish_release: true
+  prerelease: "{{ or .IsSnapshot (eq .Tag \"nightly\") (contains .Version \"-\") }}"
+  make_latest: "{{ not (eq .Tag \"nightly\") }}"
 
 # Snapshot configuration
 snapshot:
