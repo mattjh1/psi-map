@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/mattjh1/psi-map/internal/types"
+	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
 
 // GenerateHTMLFile generates an HTML file from results without starting a server
@@ -33,9 +33,12 @@ func GenerateHTMLFile(results []*types.PageResult, filename string) error {
 		Generated: time.Now(),
 	}
 
-	file, err := os.Create(filename)
+	components := validate.SplitFilePath(filename)
+
+	// Use secure file creation
+	file, _, err := validate.SafeCreateFile(components.Dir, components.Name, components.Extension)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %v", err)
+		return fmt.Errorf("failed to create file securely: %w", err)
 	}
 	defer file.Close()
 

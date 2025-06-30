@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/mattjh1/psi-map/internal/server"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
+	"github.com/mattjh1/psi-map/internal/utils/validate"
 	"github.com/mattjh1/psi-map/runner"
 	"github.com/urfave/cli/v2"
 )
@@ -23,7 +23,7 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 
 	var outputFile string
 	var useStdout bool
-	var outputFormat string // Add this to track the actual format
+	var outputFormat string
 
 	if format == "stdout" {
 		useStdout = true
@@ -32,7 +32,7 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 		// Set the output format to match the requested format
 		outputFormat = format
 
-		// Only set output file if not server command and not stdout
+		// Validate and construct output file path securely
 		var extension string
 		switch format {
 		case constants.JSON:
@@ -42,11 +42,28 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 		default:
 			return fmt.Errorf("unsupported output format: %s", format)
 		}
-		outputFile = filepath.Join(outputDir, name+extension)
+
+		// Use secure path validation
+		validatedPath, err := validate.ValidateOutputPath(outputDir, name, extension)
+		if err != nil {
+			return fmt.Errorf("invalid output path: %w", err)
+		}
+		outputFile = validatedPath
+	}
+
+	// Validate sitemap input path if it's a file path
+	sitemapInput := c.Args().First()
+	if sitemapInput != "" && !strings.HasPrefix(sitemapInput, "http") {
+		// It's a file path, validate it
+		validatedSitemap, err := validate.ValidateInputPath(sitemapInput)
+		if err != nil {
+			return fmt.Errorf("invalid sitemap path: %w", err)
+		}
+		sitemapInput = validatedSitemap
 	}
 
 	config := &types.AnalysisConfig{
-		Sitemap:      c.Args().First(),
+		Sitemap:      sitemapInput,
 		OutputFile:   outputFile,
 		OutputFormat: outputFormat,
 		UseStdout:    useStdout,
@@ -161,6 +178,7 @@ func handleOutput(config *types.AnalysisConfig, results []*types.PageResult, ela
 			return fmt.Errorf("failed to output JSON to stdout: %w", err)
 		}
 	case config.OutputFile != "":
+		// The output file path has already been validated in runAnalysis
 		switch config.OutputFormat {
 		case "html":
 			log.Tagged("STEP", "Generating HTML report: %s", "📄", config.OutputFile)

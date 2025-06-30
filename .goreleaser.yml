@@ -1,8 +1,13 @@
-version: 1
+version: 2
+
+# Project information
+project_name: psi-map
+
 # Environment variables
 env:
   - CGO_ENABLED=0
   - APP_NAME=psi-map
+
 # Build settings
 builds:
   - id: psi-map
@@ -17,6 +22,7 @@ builds:
       - arm64
     ldflags:
       - -s -w -X main.version={{.Version}} # Embed version in binary
+
 # Archive settings
 archives:
   - id: psi-map
@@ -28,9 +34,11 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
+
 # Checksum settings
 checksum:
   name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_checksums.txt"
+
 # Changelog configuration
 changelog:
   use: github
@@ -44,6 +52,7 @@ changelog:
       - "^ci(\\(.*\\))?:"
       - "^test(\\(.*\\))?:"
       - "^refactor(\\(.*\\))?:"
+
 # GitHub release settings
 release:
   github:
@@ -53,6 +62,7 @@ release:
   draft: false
   prerelease: "{{ or .IsSnapshot .IsNightly (contains .Version \"-\") }}"
   make_latest: "{{ not (or .IsSnapshot .IsNightly) }}"
+
 # Nightly release configuration
 nightly:
   name_template: "nightly-{{ .Date }}-{{ .ShortCommit }}"
@@ -60,8 +70,11 @@ nightly:
   keep_single_release: true
   # Publish nightly releases to GitHub
   publish_release: true
+
+# Snapshot configuration
 snapshot:
   name_template: "{{ .Version }}-next"
+
 # Hooks for pre-release checks
 before:
   hooks:

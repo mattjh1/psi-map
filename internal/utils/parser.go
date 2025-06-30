@@ -7,11 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/mattjh1/psi-map/internal/types"
+	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
 
 func fetchRemoteSitemap(input string) (io.ReadCloser, error) {
@@ -57,7 +57,7 @@ func ParseSitemap(input string) ([]string, error) {
 		defer body.Close()
 		reader = body
 	} else {
-		file, err := os.Open(input)
+		file, err := validate.SafeOpenFile(input)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open file: %w", err)
 		}

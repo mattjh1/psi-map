@@ -15,6 +15,7 @@ import (
 
 	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/types"
+	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
 
 // URLCacheEntry represents a cached result for a single URL
@@ -71,7 +72,7 @@ func calculateSitemapHash(sitemapPath string, urls []string) (string, error) {
 	// #nosec G401 - used only for checksums, not for security
 	hash := md5.New()
 	if sitemapPath != "" {
-		file, err := os.Open(sitemapPath)
+		file, err := validate.SafeOpenFile(sitemapPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to open sitemap: %v", err)
 		}
@@ -98,7 +99,7 @@ func getSitemapIndexFilename(cacheDir, sitemapHash string) string {
 }
 
 func loadSitemapIndex(filename string) (*SitemapCacheIndex, bool) {
-	file, err := os.Open(filename)
+	file, err := validate.SafeOpenFile(filename)
 	if err != nil {
 		return nil, false
 	}
@@ -112,9 +113,12 @@ func loadSitemapIndex(filename string) (*SitemapCacheIndex, bool) {
 }
 
 func saveSitemapIndex(filename string, index *SitemapCacheIndex) error {
-	file, err := os.Create(filename)
+	components := validate.SplitFilePath(filename)
+
+	// Use the secure file creation function
+	file, _, err := validate.SafeCreateFile(components.Dir, components.Name, components.Extension)
 	if err != nil {
-		return fmt.Errorf("failed to create index file: %v", err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer file.Close()
 
@@ -127,7 +131,7 @@ func saveSitemapIndex(filename string, index *SitemapCacheIndex) error {
 }
 
 func loadURLCacheEntry(filename string) (*URLCacheEntry, error) {
-	file, err := os.Open(filename)
+	file, err := validate.SafeOpenFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load file from filesystem %s: %w", filename, err)
 	}
@@ -141,9 +145,12 @@ func loadURLCacheEntry(filename string) (*URLCacheEntry, error) {
 }
 
 func saveURLCacheEntry(filename string, entry *URLCacheEntry) error {
-	file, err := os.Create(filename)
+	components := validate.SplitFilePath(filename)
+
+	// Use the secure file creation function
+	file, _, err := validate.SafeCreateFile(components.Dir, components.Name, components.Extension)
 	if err != nil {
-		return fmt.Errorf("failed to load file from filesystem %s: %w", filename, err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer file.Close()
 

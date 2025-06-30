@@ -9,15 +9,19 @@ import (
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/server"
 	"github.com/mattjh1/psi-map/internal/types"
+	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
 
 // serverGenerateHTMLFile is a package-level variable to allow mocking in tests
 var serverGenerateHTMLFile = server.GenerateHTMLFile
 
 func SaveJSONReport(results []*types.PageResult, filename string) error {
-	file, err := os.Create(filename)
+	components := validate.SplitFilePath(filename)
+
+	// Use the secure file creation function
+	file, _, err := validate.SafeCreateFile(components.Dir, components.Name, components.Extension)
 	if err != nil {
-		return fmt.Errorf("failed to create JSON file: %v", err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer file.Close()
 
