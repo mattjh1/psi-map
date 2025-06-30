@@ -1,10 +1,8 @@
 version: 1
-
 # Environment variables
 env:
   - CGO_ENABLED=0
   - APP_NAME=psi-map
-
 # Build settings
 builds:
   - id: psi-map
@@ -19,7 +17,6 @@ builds:
       - arm64
     ldflags:
       - -s -w -X main.version={{.Version}} # Embed version in binary
-
 # Archive settings
 archives:
   - id: psi-map
@@ -31,39 +28,40 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
-
 # Checksum settings
 checksum:
   name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_checksums.txt"
-
 # Changelog configuration
 changelog:
+  use: github
   sort: asc
-  use: github-native
+  abbrev: 7
+  format: "[`{{ .SHA }}`](https://github.com/mattjh1/{{ .Env.APP_NAME }}/commit/{{ .SHA }}): {{ .Message }} ({{ .AuthorUsername }})"
   filters:
     exclude:
-      - '^docs:'
-      - '^chore:'
-      - '^ci:'
-      - '^test:'
-      - '^refactor:'
-  groups:
-    - title: Features
-      regexp: '^feat:.*$'
-      order: 0
-    - title: Bug Fixes
-      regexp: '^fix:.*$'
-      order: 1
-
+      - "^docs(\\(.*\\))?:"
+      - "^chore(\\(.*\\))?:"
+      - "^ci(\\(.*\\))?:"
+      - "^test(\\(.*\\))?:"
+      - "^refactor(\\(.*\\))?:"
 # GitHub release settings
 release:
   github:
     owner: mattjh1
     name: psi-map
-  name_template: "v{{ .Version }}"
+  name_template: "{{ if .IsNightly }}Nightly {{ .Date }}{{ else }}v{{ .Version }}{{ end }}"
   draft: false
-  prerelease: ${{ contains(.Version, '-') }}
-
+  prerelease: "{{ or .IsSnapshot .IsNightly (contains .Version \"-\") }}"
+  make_latest: "{{ not (or .IsSnapshot .IsNightly) }}"
+# Nightly release configuration
+nightly:
+  name_template: "nightly-{{ .Date }}-{{ .ShortCommit }}"
+  tag_name: "nightly"
+  keep_single_release: true
+  # Publish nightly releases to GitHub
+  publish_release: true
+snapshot:
+  name_template: "{{ .Version }}-next"
 # Hooks for pre-release checks
 before:
   hooks:
