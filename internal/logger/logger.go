@@ -120,6 +120,13 @@ func GetLogger() *Logger {
 	return singletonLogger
 }
 
+// Reset resets the singleton logger instance (for testing only)
+func Reset() {
+	singletonLogger = nil
+	// If needed, reset once so Init() will run again
+	once = sync.Once{}
+}
+
 // New creates a new logger instance (non-singleton, for testing or special cases)
 func New(options ...Option) *Logger {
 	// Configure pterm to use stderr for all output

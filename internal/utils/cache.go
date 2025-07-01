@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mattjh1/psi-map/internal/constants"
+	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
@@ -163,6 +164,7 @@ func saveURLCacheEntry(filename string, entry *URLCacheEntry) error {
 }
 
 func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]*types.PageResult, []string, error) {
+	log := logger.GetLogger()
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return nil, urls, err
@@ -210,7 +212,11 @@ func CheckURLCache(sitemapPath string, urls []string, ttlHours int) ([]*types.Pa
 			expiryTime := entry.Timestamp.Add(time.Duration(ttlHours) * time.Hour)
 			if now.After(expiryTime) {
 				missing = append(missing, url)
-				os.Remove(cacheFile)
+
+				if err := os.Remove(cacheFile); err != nil {
+					log.Error("failed to remove cache file %s: %v", cacheFile, err)
+				}
+
 				continue
 			}
 		}
@@ -360,6 +366,7 @@ func ListCacheFiles(ttlHours int, verbose bool) ([]types.CacheInfo, error) {
 }
 
 func CleanExpiredCacheFiles(ttlHours int, dryRun bool) (int, error) {
+	log := logger.GetLogger()
 	if ttlHours <= 0 {
 		return 0, fmt.Errorf("TTL must be positive")
 	}
@@ -417,7 +424,9 @@ func CleanExpiredCacheFiles(ttlHours int, dryRun bool) (int, error) {
 		cleaned += urlsRemoved
 		if !dryRun && len(updatedURLs) != len(index.URLs) {
 			if len(updatedURLs) == 0 {
-				os.Remove(indexFile)
+				if err := os.Remove(indexFile); err != nil {
+					log.Tagged("CACHE", "Failed to remove index file %s: %v", "⚠️", indexFile, err)
+				}
 			} else {
 				index.URLs = updatedURLs
 				index.LastUpdated = now
@@ -432,6 +441,7 @@ func CleanExpiredCacheFiles(ttlHours int, dryRun bool) (int, error) {
 }
 
 func ClearAllCacheFiles() (int, error) {
+	log := logger.GetLogger()
 	cacheDir, err := getCacheDir()
 	if err != nil {
 		return 0, err
@@ -449,7 +459,9 @@ func ClearAllCacheFiles() (int, error) {
 				}
 			}
 		}
-		os.RemoveAll(urlsDir)
+		if err := os.RemoveAll(urlsDir); err != nil {
+			log.Tagged("CACHE", "Failed to remove directory %s: %v", "⚠️", urlsDir, err)
+		}
 	}
 
 	if indexEntries, err := os.ReadDir(indexesDir); err == nil {

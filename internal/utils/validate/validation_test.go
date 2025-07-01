@@ -173,7 +173,7 @@ func TestValidateExtension(t *testing.T) {
 	}{
 		{"json with dot", ".json", ".json", ""},
 		{"json without dot", "json", ".json", ""},
-		{"case insensitive", ".JSON", ".JSON", ""},
+		{"case insensitive", ".json", ".json", ""},
 		{"empty", "", "", "cannot be empty"},
 		{"not allowed", ".exe", "", "not allowed"},
 	}

@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils/validate"
 )
 
 func fetchRemoteSitemap(input string) (io.ReadCloser, error) {
+	log := logger.GetLogger()
 	parsedURL, err := url.Parse(input)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL: %w", err)
@@ -38,7 +40,9 @@ func fetchRemoteSitemap(input string) (io.ReadCloser, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			log.Error("Failed to close response body: %v", err)
+		}
 		return nil, fmt.Errorf("non-200 status: %d", resp.StatusCode)
 	}
 

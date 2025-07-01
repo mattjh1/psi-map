@@ -103,6 +103,8 @@ func TestFormatCategoryName(t *testing.T) {
 }
 
 func TestPrintSummary(t *testing.T) {
+	logger.Reset()
+
 	// Mock the logger's output
 	var buf bytes.Buffer
 	logger.Init(logger.WithOutput(&buf)) // Ensure singleton is also mocked

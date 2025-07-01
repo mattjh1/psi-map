@@ -211,7 +211,10 @@ func findAvailablePort(preferredPort string) (string, error) {
 		testPort := port + i
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
 		if err == nil {
-			listener.Close()
+			if cerr := listener.Close(); cerr != nil {
+				log.Error("Failed to close test listener on port %d: %v", testPort, cerr)
+			}
+
 			if testPort != port {
 				log.Tagged("SERVER", "Port %d was busy, using port %d instead", "🔄", port, testPort)
 			}

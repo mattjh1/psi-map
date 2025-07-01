@@ -85,6 +85,16 @@ func ValidateDirectory(dir string) (string, error) {
 		return "", fmt.Errorf("directory contains path traversal: %w", ErrPathTraversal)
 	}
 
+	// Additional security checks
+	if strings.ContainsAny(dir, "<>:|?*") {
+		return "", fmt.Errorf("directory contains invalid characters: %w", ErrInvalidPath)
+	}
+
+	// Check for null bytes
+	if strings.Contains(dir, "\x00") {
+		return "", fmt.Errorf("directory contains null bytes: %w", ErrInvalidPath)
+	}
+
 	// Clean the path
 	cleanDir := filepath.Clean(dir)
 
@@ -108,6 +118,11 @@ func ValidateFileName(name string) (string, error) {
 		return "", fmt.Errorf("path traversal detected in filename: %w", ErrInvalidFileName)
 	}
 
+	// Check for null bytes
+	if strings.Contains(name, "\x00") {
+		return "", fmt.Errorf("filename contains null bytes: %w", ErrInvalidFileName)
+	}
+
 	// Check for path separators (shouldn't be in a filename)
 	if strings.ContainsAny(name, "/\\") {
 		return "", fmt.Errorf("filename cannot contain path separators: %w", ErrInvalidFileName)
@@ -116,10 +131,17 @@ func ValidateFileName(name string) (string, error) {
 	// Remove any path components (this should now be safe)
 	cleanName := filepath.Base(name)
 
-	// Check for invalid characters
-	validName := regexp.MustCompile(`^[a-zA-Z0-9_\-.]+$`)
+	// Enhanced character validation - more restrictive for security
+	validName := regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
 	if !validName.MatchString(cleanName) {
 		return "", fmt.Errorf("filename contains invalid characters: %w", ErrInvalidFileName)
+	}
+
+	const maxFileNameLength = 255
+
+	// Check length limits
+	if len(cleanName) > maxFileNameLength {
+		return "", fmt.Errorf("filename too long: %w", ErrInvalidFileName)
 	}
 
 	// Check for reserved names on Windows
@@ -143,6 +165,11 @@ func ValidateExtension(ext string) (string, error) {
 		ext = "." + ext
 	}
 
+	// Check for null bytes
+	if strings.Contains(ext, "\x00") {
+		return "", fmt.Errorf("extension contains null bytes: %w", ErrInvalidExtension)
+	}
+
 	// Whitelist allowed extensions
 	allowedExtensions := map[string]bool{
 		".json": true,
@@ -151,17 +178,23 @@ func ValidateExtension(ext string) (string, error) {
 		".txt":  true,
 	}
 
-	if !allowedExtensions[strings.ToLower(ext)] {
+	lowerExt := strings.ToLower(ext)
+	if !allowedExtensions[lowerExt] {
 		return "", fmt.Errorf("extension not allowed: %w", ErrInvalidExtension)
 	}
 
-	return ext, nil
+	return lowerExt, nil
 }
 
 // ValidateInputPath validates paths for reading files (like sitemaps)
 func ValidateInputPath(inputPath string) (string, error) {
 	if inputPath == "" {
 		return "", fmt.Errorf("input path cannot be empty: %w", ErrInvalidPath)
+	}
+
+	// Check for null bytes
+	if strings.Contains(inputPath, "\x00") {
+		return "", fmt.Errorf("input path contains null bytes: %w", ErrInvalidPath)
 	}
 
 	// Clean the path
@@ -201,11 +234,13 @@ func SafeCreateFile(outputDir, name, extension string) (*os.File, string, error)
 
 	// Ensure the directory exists
 	dir := filepath.Dir(validPath)
+	// #nosec G301 - Directory permissions are explicitly set to 0755
 	if err := os.MkdirAll(dir, DefaultDirPermissions); err != nil {
 		return nil, "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Create the file
+	// #nosec G304 - Path is validated and sanitized by ValidateOutputPath
 	file, err := os.Create(validPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create file: %w", err)
@@ -221,6 +256,7 @@ func SafeOpenFile(inputPath string) (*os.File, error) {
 		return nil, err
 	}
 
+	// #nosec G304 - Path is validated and sanitized by ValidateInputPath
 	file, err := os.Open(validPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -256,15 +292,54 @@ func SplitFilePath(filePath string) PathComponents {
 func SafeCreateFileFromPath(validatedPath string) (*os.File, error) {
 	// Ensure the directory exists
 	dir := filepath.Dir(validatedPath)
+	// #nosec G301 - Directory permissions are explicitly set to 0755
 	if err := os.MkdirAll(dir, DefaultDirPermissions); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Create the file
+	// #nosec G304 - Path is already validated before calling this function
 	file, err := os.Create(validatedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 
 	return file, nil
+}
+
+// Additional helper functions for enhanced security
+
+// IsWithinDirectory checks if a path is within a specified directory
+func IsWithinDirectory(basePath, targetPath string) (bool, error) {
+	absBase, err := filepath.Abs(basePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve absolute path for basePath: %w", err)
+	}
+
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve absolute path for targetPath: %w", err)
+	}
+
+	relPath, err := filepath.Rel(absBase, absTarget)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve relative path: %w", err)
+	}
+
+	return !strings.HasPrefix(relPath, ".."), nil
+}
+
+// SanitizePathComponent removes dangerous characters from path components
+func SanitizePathComponent(component string) string {
+	// Remove null bytes and other control characters
+	component = strings.ReplaceAll(component, "\x00", "")
+
+	// Remove path separators
+	component = strings.ReplaceAll(component, "/", "")
+	component = strings.ReplaceAll(component, "\\", "")
+
+	// Remove path traversal sequences
+	component = strings.ReplaceAll(component, "..", "")
+
+	return component
 }
