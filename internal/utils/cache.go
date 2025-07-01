@@ -460,7 +460,7 @@ func ClearAllCacheFiles() (int, error) {
 			}
 		}
 		if err := os.RemoveAll(urlsDir); err != nil {
-			log.Tagged("CACHE", "Failed to remove directory %s: %v", "⚠️", urlsDir, err)
+			log.Tagged("CACHE", "Failed to remove URLs directory %s: %v", "⚠️", urlsDir, err)
 		}
 	}
 
@@ -472,7 +472,9 @@ func ClearAllCacheFiles() (int, error) {
 				}
 			}
 		}
-		os.RemoveAll(indexesDir)
+		if err := os.RemoveAll(indexesDir); err != nil {
+			log.Tagged("CACHE", "Failed to remove indexes directory %s: %v", "⚠️", urlsDir, err)
+		}
 	}
 
 	return clearedCount, nil

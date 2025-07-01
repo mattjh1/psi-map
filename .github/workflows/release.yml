@@ -33,6 +33,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Setup release dependencies
+        run: make ci-setup
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
