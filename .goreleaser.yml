@@ -1,8 +1,5 @@
 version: 2
 
-# Project information
-project_name: psi-map
-
 # Environment variables
 env:
   - CGO_ENABLED=0
@@ -28,12 +25,14 @@ archives:
   - id: psi-map
     builds:
       - psi-map
-    format: tar.gz
     name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
       - CHANGELOG.md
+    format_overrides:
+      - goos: windows
+        format: zip
 
 # Checksum settings
 checksum:
@@ -45,6 +44,7 @@ changelog:
   sort: asc
   abbrev: 7
   format: "[`{{ .SHA }}`](https://github.com/mattjh1/{{ .Env.APP_NAME }}/commit/{{ .SHA }}): {{ .Message }} ({{ .AuthorUsername }})"
+
   filters:
     exclude:
       - "^docs(\\(.*\\))?:"
@@ -58,14 +58,9 @@ release:
   github:
     owner: mattjh1
     name: psi-map
-  name_template: "{{ if eq .Tag \"nightly\" }}Nightly Build{{ else }}v{{ .Version }}{{ end }}"
+  name_template: "v{{ .Version }}"
   draft: false
-  prerelease: "{{ or .IsSnapshot (eq .Tag \"nightly\") (contains .Version \"-\") }}"
-  make_latest: "{{ not (eq .Tag \"nightly\") }}"
-
-# Snapshot configuration
-snapshot:
-  name_template: "{{ .Version }}-next"
+  prerelease: ${{ contains(.Version, '-') }}
 
 # Hooks for pre-release checks
 before:
