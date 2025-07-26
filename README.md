@@ -48,8 +48,26 @@ make install
 ### Using Docker
 
 ```bash
-docker run --rm -v $(pwd):/workspace ghcr.io/mattjh1/psi-map:latest serve --sitemap sitemap.xml
+# Run with API key and current directory mounted
+docker run --rm \
+  -e PSI_API_KEY=$PSI_API_KEY \
+  -v $(pwd):/workspace \
+  ghcr.io/mattjh1/psi-map:latest \
+  serve --sitemap sitemap.xml
 ```
+
+## Setup
+
+### API Key (Recommended)
+
+To avoid rate limiting, set your PageSpeed Insights API key:
+
+```bash
+export PSI_API_KEY=your_api_key_here
+```
+
+Without an API key, you'll be rate limited quickly by Google's PageSpeed Insights service.
+Get your free API key from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
 
 ## Usage
 
