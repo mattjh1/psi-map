@@ -166,7 +166,6 @@ func combineResults(cached, fresh []*types.PageResult) []*types.PageResult {
 // handleOutput processes the results based on the configuration
 func handleOutput(config *types.AnalysisConfig, results []*types.PageResult, elapsed time.Duration) error {
 	log := logger.GetLogger()
-
 	switch {
 	case config.StartServer:
 		if err := server.Start(results, config.ServerPort); err != nil {
@@ -178,6 +177,16 @@ func handleOutput(config *types.AnalysisConfig, results []*types.PageResult, ela
 			return fmt.Errorf("failed to output JSON to stdout: %w", err)
 		}
 	case config.OutputFile != "":
+		// Validate output format before processing
+		validFormats := map[string]bool{
+			"html": true,
+			"json": true,
+		}
+
+		if !validFormats[config.OutputFormat] {
+			return fmt.Errorf("failed to generate report: unsupported output format '%s'", config.OutputFormat)
+		}
+
 		// The output file path has already been validated in runAnalysis
 		switch config.OutputFormat {
 		case "html":
