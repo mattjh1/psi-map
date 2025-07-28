@@ -63,14 +63,16 @@ func runAnalysis(c *cli.Context, isServerCommand bool) error {
 	}
 
 	config := &types.AnalysisConfig{
-		Sitemap:      sitemapInput,
-		OutputFile:   outputFile,
-		OutputFormat: outputFormat,
-		UseStdout:    useStdout,
-		StartServer:  isServerCommand,
-		ServerPort:   c.String("port"),
-		MaxWorkers:   c.Int("workers"),
-		CacheTTL:     c.Int("cache-ttl"),
+		Sitemap:       sitemapInput,
+		OutputFile:    outputFile,
+		OutputFormat:  outputFormat,
+		UseStdout:     useStdout,
+		StartServer:   isServerCommand,
+		ServerPort:    c.String("port"),
+		MaxWorkers:    c.Int("workers"),
+		CacheTTL:      c.Int("cache-ttl"),
+		Provider:      c.String("provider"),
+		LighthouseURL: c.String("lighthouse-url"),
 	}
 	return executeAnalysis(config)
 }
@@ -113,7 +115,7 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 	// Only analyze missing URLs
 	if missingCount > 0 {
 		log.Tagged("ANALYZE", "Starting analysis of %d URL(s)...", "🔍", missingCount)
-		newResults = runner.RunBatch(missingURLs, config.MaxWorkers)
+		newResults = runner.RunBatch(missingURLs, config)
 
 		// Save new results to cache
 		if err := utils.SaveURLCache(config.Sitemap, urls, newResults); err != nil {

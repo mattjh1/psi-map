@@ -3,7 +3,7 @@
 
 # Application info
 APP_NAME := psi-map
-MAIN_PACKAGE := ./main.go
+MAIN_PACKAGE := ./cmd/cli/main.go
 DIST_DIR := dist
 COVERAGE_DIR := coverage
 

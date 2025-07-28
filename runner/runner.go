@@ -12,7 +12,7 @@ import (
 )
 
 // RunBatch runs PSI tests concurrently for a list of URLs with limited concurrency.
-func RunBatch(urls []string, maxConcurrent int) []*types.PageResult {
+func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 	// Get the singleton logger and configure it
 	log := logger.GetLogger()
 
@@ -21,7 +21,7 @@ func RunBatch(urls []string, maxConcurrent int) []*types.PageResult {
 
 	var wg sync.WaitGroup
 	results := make([]*types.PageResult, len(urls))
-	sem := make(chan struct{}, maxConcurrent)
+	sem := make(chan struct{}, config.MaxWorkers)
 	var completed int32
 
 	// Run spinner for progress feedback
@@ -40,12 +40,20 @@ func RunBatch(urls []string, maxConcurrent int) []*types.PageResult {
 				wgInner.Add(constants.WaitGroupWorkers)
 				go func() {
 					defer wgInner.Done()
-					mobile = utils.FetchScore(url, "mobile")
+					if config.Provider == "lighthouse" {
+						mobile = utils.FetchLighthouseScore(url, "mobile", config.LighthouseURL)
+					} else {
+						mobile = utils.FetchScore(url, "mobile")
+					}
 				}()
 
 				go func() {
 					defer wgInner.Done()
-					desktop = utils.FetchScore(url, "desktop")
+					if config.Provider == "lighthouse" {
+						desktop = utils.FetchLighthouseScore(url, "mobile", config.LighthouseURL)
+					} else {
+						desktop = utils.FetchScore(url, "desktop")
+					}
 				}()
 
 				wgInner.Wait()

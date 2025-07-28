@@ -53,6 +53,15 @@ Examples:
 				Value: constants.DefaultTTLHours,
 				Usage: "Cache TTL in hours (0 = no expiration)",
 			},
+			&cli.StringFlag{
+				Name:  "provider",
+				Value: "psi",
+				Usage: "Analysis provider: psi or lighthouse",
+			},
+			&cli.StringFlag{
+				Name:  "lighthouse-url",
+				Usage: "Self-hosted Lighthouse API URL (required when engine=lighthouse)",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			if c.NArg() < 1 {

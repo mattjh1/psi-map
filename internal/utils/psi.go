@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -101,6 +102,84 @@ func FetchScore(pageURL, strategy string) types.Result {
 	return FetchScoreWithTimeout(pageURL, strategy, constants.ReadHeaderTimeout)
 }
 
+// FetchLighthouseScoreImpl - main implementation with context
+func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouseURL string) types.Result {
+	start := time.Now()
+
+	if lighthouseURL == "" {
+		return types.Result{
+			URL: pageURL, Strategy: strategy,
+			Error:   fmt.Errorf("lighthouse URL not configured"),
+			Elapsed: time.Since(start),
+		}
+	}
+
+	payload := map[string]interface{}{
+		"url":      pageURL,
+		"strategy": strategy,
+	}
+
+	jsonData, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", lighthouseURL+"/analyze", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return types.Result{
+			URL: pageURL, Strategy: strategy,
+			Error:   fmt.Errorf("failed to create request: %w", err),
+			Elapsed: time.Since(start),
+		}
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add Cloudflare service token headers if available
+	if clientID := os.Getenv("CF_ACCESS_CLIENT_ID"); clientID != "" {
+		req.Header.Set("CF-Access-Client-Id", clientID)
+		req.Header.Set("CF-Access-Client-Secret", os.Getenv("CF_ACCESS_CLIENT_SECRET"))
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return types.Result{
+			URL: pageURL, Strategy: strategy,
+			Error:   fmt.Errorf("request failed: %w", err),
+			Elapsed: time.Since(start),
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return types.Result{
+			URL: pageURL, Strategy: strategy,
+			Error:   fmt.Errorf("API error: status %d", resp.StatusCode),
+			Elapsed: time.Since(start),
+		}
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return types.Result{
+			URL: pageURL, Strategy: strategy,
+			Error:   fmt.Errorf("read body error: %w", err),
+			Elapsed: time.Since(start),
+		}
+	}
+
+	// Parse Lighthouse response (you'll need to implement this)
+	return extractLighthouseResultData(body, pageURL, strategy, time.Since(start))
+}
+
+// Convenience functions matching your PSI pattern
+func FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL string, timeout time.Duration) types.Result {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return FetchLighthouseScoreImpl(ctx, pageURL, strategy, lighthouseURL)
+}
+
+func FetchLighthouseScore(pageURL, strategy, lighthouseURL string) types.Result {
+	return FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL, constants.ReadHeaderTimeout)
+}
+
 // extractResultData processes the PSI response into our Result struct
 func extractResultData(data *psi.PSIResponse, pageURL, strategy string, elapsed time.Duration) types.Result {
 	result := types.Result{
@@ -136,6 +215,51 @@ func extractResultData(data *psi.PSIResponse, pageURL, strategy string, elapsed 
 	if data.LoadingExperience != nil {
 		result.FieldData = extractFieldData(data.LoadingExperience)
 	}
+
+	return result
+}
+
+// extractLighthouseResultData processes a direct Lighthouse API response into our Result struct
+func extractLighthouseResultData(body []byte, pageURL, strategy string, elapsed time.Duration) types.Result {
+	var lighthouseResult psi.LighthouseResult
+	if err := json.Unmarshal(body, &lighthouseResult); err != nil {
+		return types.Result{
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("JSON parse error: %w", err),
+			Elapsed:  elapsed,
+		}
+	}
+
+	result := types.Result{
+		URL:      pageURL,
+		Strategy: strategy,
+		Elapsed:  elapsed,
+	}
+
+	// Extract category scores
+	if lighthouseResult.Categories != nil {
+		result.Scores = &types.CategoryScores{
+			Performance:   getScore(lighthouseResult.Categories.Performance),
+			Accessibility: getScore(lighthouseResult.Categories.Accessibility),
+			BestPractices: getScore(lighthouseResult.Categories.BestPractices),
+			SEO:           getScore(lighthouseResult.Categories.SEO),
+		}
+	}
+
+	if lighthouseResult.Audits != nil {
+		result.Metrics = extractMetrics(lighthouseResult.Audits)
+		result.Opportunities = extractOpportunities(lighthouseResult.Audits)
+	}
+
+	if lighthouseResult.FinalDisplayedURL != "" {
+		result.FinalURL = lighthouseResult.FinalDisplayedURL
+	}
+
+	result.UserAgent = lighthouseResult.UserAgent
+
+	// Note: Direct Lighthouse API calls don't include LoadingExperience (field data)
+	// That's only available through the PSI API which includes Chrome UX Report data
 
 	return result
 }
