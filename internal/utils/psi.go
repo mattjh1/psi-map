@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -108,13 +109,14 @@ func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouse
 
 	if lighthouseURL == "" {
 		return types.Result{
-			URL: pageURL, Strategy: strategy,
-			Error:   fmt.Errorf("lighthouse URL not configured"),
-			Elapsed: time.Since(start),
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("lighthouse URL not configured"),
+			Elapsed:  time.Since(start),
 		}
 	}
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"url":      pageURL,
 		"strategy": strategy,
 	}
@@ -124,44 +126,44 @@ func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouse
 	req, err := http.NewRequestWithContext(ctx, "POST", lighthouseURL+"/analyze", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return types.Result{
-			URL: pageURL, Strategy: strategy,
-			Error:   fmt.Errorf("failed to create request: %w", err),
-			Elapsed: time.Since(start),
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("failed to create request: %w", err),
+			Elapsed:  time.Since(start),
 		}
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	// Add Cloudflare service token headers if available
-	if clientID := os.Getenv("CF_ACCESS_CLIENT_ID"); clientID != "" {
-		req.Header.Set("CF-Access-Client-Id", clientID)
-		req.Header.Set("CF-Access-Client-Secret", os.Getenv("CF_ACCESS_CLIENT_SECRET"))
-	}
+	addAuthHeaders(req)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return types.Result{
-			URL: pageURL, Strategy: strategy,
-			Error:   fmt.Errorf("request failed: %w", err),
-			Elapsed: time.Since(start),
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("request failed: %w", err),
+			Elapsed:  time.Since(start),
 		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return types.Result{
-			URL: pageURL, Strategy: strategy,
-			Error:   fmt.Errorf("API error: status %d", resp.StatusCode),
-			Elapsed: time.Since(start),
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("API error: status %d", resp.StatusCode),
+			Elapsed:  time.Since(start),
 		}
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return types.Result{
-			URL: pageURL, Strategy: strategy,
-			Error:   fmt.Errorf("read body error: %w", err),
-			Elapsed: time.Since(start),
+			URL:      pageURL,
+			Strategy: strategy,
+			Error:    fmt.Errorf("read body error: %w", err),
+			Elapsed:  time.Since(start),
 		}
 	}
 
@@ -262,6 +264,49 @@ func extractLighthouseResultData(body []byte, pageURL, strategy string, elapsed 
 	// That's only available through the PSI API which includes Chrome UX Report data
 
 	return result
+}
+
+func addAuthHeaders(req *http.Request) {
+	// 1. No auth - do nothing (default)
+
+	// 2. Cloudflare Access Service Token
+	if clientID := os.Getenv("CF_ACCESS_CLIENT_ID"); clientID != "" {
+		req.Header.Set("CF-Access-Client-Id", clientID)
+		req.Header.Set("CF-Access-Client-Secret", os.Getenv("CF_ACCESS_CLIENT_SECRET"))
+		return
+	}
+
+	// 3. Bearer Token (JWT, API tokens)
+	if token := os.Getenv("LIGHTHOUSE_BEARER_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+		return
+	}
+
+	// 4. Basic Auth
+	if username := os.Getenv("LIGHTHOUSE_BASIC_USER"); username != "" {
+		password := os.Getenv("LIGHTHOUSE_BASIC_PASS")
+		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		req.Header.Set("Authorization", "Basic "+auth)
+		return
+	}
+
+	// 5. API Key in custom header
+	if apiKey := os.Getenv("LIGHTHOUSE_API_KEY"); apiKey != "" {
+		headerName := os.Getenv("LIGHTHOUSE_API_KEY_HEADER")
+		if headerName == "" {
+			headerName = "X-API-Key" // default
+		}
+		req.Header.Set(headerName, apiKey)
+		return
+	}
+
+	// 6. Generic custom header (fallback)
+	if headerValue := os.Getenv("LIGHTHOUSE_AUTH_HEADER_VALUE"); headerValue != "" {
+		headerName := os.Getenv("LIGHTHOUSE_AUTH_HEADER_NAME")
+		if headerName != "" {
+			req.Header.Set(headerName, headerValue)
+		}
+	}
 }
 
 // getScore safely extracts score from category, handling nil cases

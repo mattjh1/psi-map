@@ -60,7 +60,7 @@ Examples:
 			},
 			&cli.StringFlag{
 				Name:  "lighthouse-url",
-				Usage: "Self-hosted Lighthouse API URL (required when engine=lighthouse)",
+				Usage: "Self-hosted Lighthouse API URL (required when provider=lighthouse)",
 			},
 		},
 		Action: func(c *cli.Context) error {
