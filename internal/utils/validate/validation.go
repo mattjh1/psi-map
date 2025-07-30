@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultDirPermissions sets the default permissions for created directories
-	DefaultDirPermissions = 0o755
+	DefaultDirPermissions = 0755
 )
 
 var (

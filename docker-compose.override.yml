@@ -1,0 +1,13 @@
+services:
+  psi-map-api:
+    build:
+      target: builder
+    volumes:
+      - .:/app
+      - /app/tmp
+    command: ["go", "run", "cmd/api/main.go"]
+    environment:
+      - GO_ENV=development
+    ports:
+      - "8080:8080"
+      - "2345:2345" # Delve debugger port
