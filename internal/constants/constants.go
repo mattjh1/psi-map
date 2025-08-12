@@ -75,7 +75,7 @@ const (
 
 // File System Permissions
 const (
-	DefaultDirPermissions = 0755
+	DefaultDirPermissions = 0o755
 )
 
 // Time Calculations
@@ -88,4 +88,13 @@ const (
 	AuditScorePoorThreshold = 0.5
 	AuditScoreGoodThreshold = 0.9
 	ScoreMultiplier         = 100
+)
+
+// API Server timeout constants
+const (
+	APIReadTimeout     = 30 * time.Second
+	APIWriteTimeout    = 300 * time.Second // Extended for long-running analyzes
+	APIIdleTimeout     = 120 * time.Second
+	APIShutdownTimeout = 30 * time.Second
+	APIdefaultPort     = "8888"
 )

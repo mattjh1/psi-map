@@ -6,9 +6,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	_ "github.com/mattjh1/psi-map/docs"
 	"github.com/mattjh1/psi-map/internal/api"
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
 )
 
@@ -30,7 +31,7 @@ var (
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
-// @host localhost:8080
+// @host localhost:8888
 // @BasePath /api/v1
 // @schemes http https
 
@@ -42,7 +43,7 @@ func main() {
 	// Get port from environment or default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8888"
 	}
 
 	// Create API server
@@ -52,9 +53,9 @@ func main() {
 	httpServer := &http.Server{
 		Addr:         ":" + port,
 		Handler:      server.Router(),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 300 * time.Second, // Extended for long-running analyses
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  constants.APIReadTimeout,
+		WriteTimeout: constants.APIWriteTimeout, // Extended for long-running analyzes
+		IdleTimeout:  constants.APIIdleTimeout,
 	}
 
 	// Start server in a goroutine
@@ -77,12 +78,12 @@ func main() {
 	log.Info("Shutting down server...")
 
 	// Give outstanding requests 30 seconds to complete
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.APIReadTimeout)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Error("Server forced to shutdown: %v", err)
-		os.Exit(1)
+		return
 	}
 
 	log.Info("Server shutdown complete")

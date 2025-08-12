@@ -228,53 +228,6 @@ type JobStatusResponse struct {
 	Duration  string           `json:"duration,omitempty" example:"45s"`
 	Error     string           `json:"error,omitempty"`
 } // @name JobStatusResponse
-// AnalysisRequest represents the request payload for analysis
-type AnalysisRequest struct {
-	Sitemap       string `json:"sitemap" binding:"required" example:"https://example.com/sitemap.xml"`
-	MaxWorkers    int    `json:"max_workers,omitempty" example:"4"`
-	CacheTTL      int    `json:"cache_ttl,omitempty" example:"86400"`
-	Provider      string `json:"provider,omitempty" example:"psi"`
-	LighthouseURL string `json:"lighthouse_url,omitempty" example:"http://localhost:9222"`
-	Async         bool   `json:"async,omitempty" example:"true"`
-} // @name AnalysisRequest
-
-// Validate validates the analysis request
-func (r *AnalysisRequest) Validate() error {
-	if strings.TrimSpace(r.Sitemap) == "" {
-		return fmt.Errorf("sitemap is required")
-	}
-
-	if r.MaxWorkers < 0 {
-		return fmt.Errorf("max_workers must be >= 0")
-	}
-
-	if r.CacheTTL < 0 {
-		return fmt.Errorf("cache_ttl must be >= 0")
-	}
-
-	if r.Provider != "" && r.Provider != "psi" && r.Provider != "lighthouse" {
-		return fmt.Errorf("provider must be 'psi' or 'lighthouse'")
-	}
-
-	if r.Provider == "lighthouse" && strings.TrimSpace(r.LighthouseURL) == "" {
-		return fmt.Errorf("lighthouse_url is required when provider is 'lighthouse'")
-	}
-
-	return nil
-}
-
-// SetDefaults sets default values for optional fields
-func (r *AnalysisRequest) SetDefaults() {
-	if r.MaxWorkers == 0 {
-		r.MaxWorkers = max(1, runtime.NumCPU()/constants.CPUDivisor)
-	}
-	if r.CacheTTL == 0 {
-		r.CacheTTL = constants.DefaultTTLHours
-	}
-	if r.Provider == "" {
-		r.Provider = "psi"
-	}
-}
 
 // AsyncAnalysisResponse represents the response for async analysis requests
 type AsyncAnalysisResponse struct {
@@ -344,3 +297,78 @@ type JobSummary struct {
 	Sitemap   string      `json:"sitemap" example:"https://example.com/sitemap.xml"`
 	Progress  JobProgress `json:"progress"`
 } // @name JobSummary
+
+// AnalysisRequest represents the request payload for analysis with authentication support
+type AnalysisRequest struct {
+	Sitemap       string                `json:"sitemap" binding:"required" example:"https://example.com/sitemap.xml"`
+	MaxWorkers    int                   `json:"max_workers,omitempty" example:"4"`
+	CacheTTL      int                   `json:"cache_ttl,omitempty" example:"86400"`
+	Provider      string                `json:"provider,omitempty" example:"psi"`
+	LighthouseURL string                `json:"lighthouse_url,omitempty" example:"http://localhost:9222"`
+	Async         bool                  `json:"async,omitempty" example:"true"`
+	Auth          *AuthenticationConfig `json:"auth,omitempty"`
+} // @name AnalysisRequest
+
+// AuthenticationConfig holds authentication configuration for external services
+type AuthenticationConfig struct {
+	// Bearer token for Authorization header
+	BearerToken string `json:"bearer_token,omitempty" example:"your-bearer-token"`
+
+	// Cloudflare Access configuration
+	CloudflareAccess *CloudflareAccessConfig `json:"cloudflare_access,omitempty"`
+} // @name AuthenticationConfig
+
+// CloudflareAccessConfig holds Cloudflare Access authentication details
+type CloudflareAccessConfig struct {
+	ClientID     string `json:"client_id,omitempty" example:"your-cf-client-id"`
+	ClientSecret string `json:"client_secret,omitempty" example:"your-cf-client-secret"`
+} // @name CloudflareAccessConfig
+
+// Validate validates the analysis request
+func (r *AnalysisRequest) Validate() error {
+	var lh = "lighthouse"
+
+	if strings.TrimSpace(r.Sitemap) == "" {
+		return fmt.Errorf("sitemap is required")
+	}
+
+	if r.MaxWorkers < 0 {
+		return fmt.Errorf("max_workers must be >= 0")
+	}
+
+	if r.CacheTTL < 0 {
+		return fmt.Errorf("cache_ttl must be >= 0")
+	}
+
+	if r.Provider != "" && r.Provider != "psi" && r.Provider != lh {
+		return fmt.Errorf("provider must be 'psi' or 'lighthouse'")
+	}
+
+	if r.Provider == lh && strings.TrimSpace(r.LighthouseURL) == "" {
+		return fmt.Errorf("lighthouse_url is required when provider is 'lighthouse'")
+	}
+
+	// Validate authentication configuration if using lighthouse provider
+	if r.Provider == lh && r.Auth != nil {
+		if r.Auth.CloudflareAccess != nil {
+			if r.Auth.CloudflareAccess.ClientID == "" || r.Auth.CloudflareAccess.ClientSecret == "" {
+				return fmt.Errorf("both client_id and client_secret are required for Cloudflare Access")
+			}
+		}
+	}
+
+	return nil
+}
+
+// SetDefaults sets default values for optional fields
+func (r *AnalysisRequest) SetDefaults() {
+	if r.MaxWorkers == 0 {
+		r.MaxWorkers = max(1, runtime.NumCPU()/constants.CPUDivisor)
+	}
+	if r.CacheTTL == 0 {
+		r.CacheTTL = constants.DefaultTTLHours
+	}
+	if r.Provider == "" {
+		r.Provider = "psi"
+	}
+}
