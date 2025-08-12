@@ -21,7 +21,7 @@ const (
 	JobStatusRunning   JobStatus = "running"
 	JobStatusCompleted JobStatus = "completed"
 	JobStatusFailed    JobStatus = "failed"
-	JobStatusCancelled JobStatus = "cancelled"
+	JobStatusCanceled  JobStatus = "canceled"
 )
 
 // Job represents an analysis job
@@ -159,10 +159,10 @@ func (jm *JobManager) CancelJob(jobID string) error {
 	}
 
 	if job.Status != JobStatusRunning && job.Status != JobStatusPending {
-		return fmt.Errorf("job %s cannot be cancelled (status: %s)", jobID, job.Status)
+		return fmt.Errorf("job %s cannot be canceled (status: %s)", jobID, job.Status)
 	}
 
-	job.Status = JobStatusCancelled
+	job.Status = JobStatusCanceled
 	job.Cancel()
 
 	return nil
@@ -207,9 +207,9 @@ func (jm *JobManager) executeJob(job *Job) {
 		// Create a progress tracking version of the runner
 		newResults = jm.runBatchWithProgress(job, missingURLs)
 
-		// Check if job was cancelled
-		if job.Status == JobStatusCancelled {
-			log.Info("Job %s was cancelled", job.ID)
+		// Check if job was canceled
+		if job.Status == JobStatusCanceled {
+			log.Info("Job %s was canceled", job.ID)
 			return
 		}
 

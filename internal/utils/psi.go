@@ -103,10 +103,9 @@ func FetchScore(pageURL, strategy string) types.Result {
 	return FetchScoreWithTimeout(pageURL, strategy, constants.ReadHeaderTimeout)
 }
 
-// FetchLighthouseScoreImpl - main implementation with context
-func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouseURL string) types.Result {
+// FetchLighthouseScoreImpl - main implementation with context and auth
+func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouseURL string, auth *types.AuthenticationConfig) types.Result {
 	start := time.Now()
-
 	if lighthouseURL == "" {
 		return types.Result{
 			URL:      pageURL,
@@ -120,7 +119,6 @@ func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouse
 		"url":      pageURL,
 		"strategy": strategy,
 	}
-
 	jsonData, _ := json.Marshal(payload)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", lighthouseURL+"/analyze", bytes.NewBuffer(jsonData))
@@ -135,7 +133,8 @@ func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouse
 
 	req.Header.Set("Content-Type", "application/json")
 
-	addAuthHeaders(req)
+	// Add authentication headers if auth config is provided
+	addAuthHeaders(req, auth)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -167,19 +166,106 @@ func FetchLighthouseScoreImpl(ctx context.Context, pageURL, strategy, lighthouse
 		}
 	}
 
-	// Parse Lighthouse response (you'll need to implement this)
+	// Parse Lighthouse response
 	return extractLighthouseResultData(body, pageURL, strategy, time.Since(start))
 }
 
-// Convenience functions matching your PSI pattern
-func FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL string, timeout time.Duration) types.Result {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return FetchLighthouseScoreImpl(ctx, pageURL, strategy, lighthouseURL)
+// Supports both config-based auth (from API) and environment-based auth (from CLI)
+func addAuthHeaders(req *http.Request, auth *types.AuthenticationConfig) {
+	// Try config-based auth first (from API requests)
+	if auth != nil {
+		authAdded := false
+
+		// Add Bearer token if provided
+		if auth.BearerToken != "" {
+			req.Header.Set("Authorization", "Bearer "+auth.BearerToken)
+			authAdded = true
+		}
+
+		// Add Cloudflare Access headers if provided
+		if auth.CloudflareAccess != nil {
+			if auth.CloudflareAccess.ClientID != "" {
+				req.Header.Set("CF-Access-Client-Id", auth.CloudflareAccess.ClientID)
+				authAdded = true
+			}
+			if auth.CloudflareAccess.ClientSecret != "" {
+				req.Header.Set("CF-Access-Client-Secret", auth.CloudflareAccess.ClientSecret)
+				authAdded = true
+			}
+		}
+
+		// If config-based auth was added, don't try environment auth
+		if authAdded {
+			return
+		}
+	}
+
+	// Fall back to environment-based auth (original CLI behavior)
+	addEnvAuthHeaders(req)
 }
 
-func FetchLighthouseScore(pageURL, strategy, lighthouseURL string) types.Result {
-	return FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL, constants.ReadHeaderTimeout)
+// addEnvAuthHeaders adds authentication headers from environment variables
+func addEnvAuthHeaders(req *http.Request) {
+	// 1. No auth - do nothing (default)
+
+	// 2. Cloudflare Access Service Token
+	if clientID := os.Getenv("CF_ACCESS_CLIENT_ID"); clientID != "" {
+		req.Header.Set("CF-Access-Client-Id", clientID)
+		req.Header.Set("CF-Access-Client-Secret", os.Getenv("CF_ACCESS_CLIENT_SECRET"))
+		return
+	}
+
+	// 3. Bearer Token (JWT, API tokens)
+	if token := os.Getenv("LIGHTHOUSE_BEARER_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+		return
+	}
+
+	// 4. Basic Auth
+	if username := os.Getenv("LIGHTHOUSE_BASIC_USER"); username != "" {
+		password := os.Getenv("LIGHTHOUSE_BASIC_PASS")
+		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		req.Header.Set("Authorization", "Basic "+auth)
+		return
+	}
+
+	// 5. API Key in custom header
+	if apiKey := os.Getenv("LIGHTHOUSE_API_KEY"); apiKey != "" {
+		headerName := os.Getenv("LIGHTHOUSE_API_KEY_HEADER")
+		if headerName == "" {
+			headerName = "X-API-Key" // default
+		}
+		req.Header.Set(headerName, apiKey)
+		return
+	}
+
+	// 6. Generic custom header (fallback)
+	if headerValue := os.Getenv("LIGHTHOUSE_AUTH_HEADER_VALUE"); headerValue != "" {
+		headerName := os.Getenv("LIGHTHOUSE_AUTH_HEADER_NAME")
+		if headerName != "" {
+			req.Header.Set(headerName, headerValue)
+		}
+	}
+}
+
+// Convenience functions with auth support
+func FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL string, timeout time.Duration, auth *types.AuthenticationConfig) types.Result {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return FetchLighthouseScoreImpl(ctx, pageURL, strategy, lighthouseURL, auth)
+}
+
+func FetchLighthouseScore(pageURL, strategy, lighthouseURL string, auth *types.AuthenticationConfig) types.Result {
+	return FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL, constants.ReadHeaderTimeout, auth)
+}
+
+// Backward compatibility functions (without auth) - these will work without authentication
+func FetchLighthouseScoreWithTimeoutLegacy(pageURL, strategy, lighthouseURL string, timeout time.Duration) types.Result {
+	return FetchLighthouseScoreWithTimeout(pageURL, strategy, lighthouseURL, timeout, nil)
+}
+
+func FetchLighthouseScoreLegacy(pageURL, strategy, lighthouseURL string) types.Result {
+	return FetchLighthouseScore(pageURL, strategy, lighthouseURL, nil)
 }
 
 // extractResultData processes the PSI response into our Result struct
@@ -264,49 +350,6 @@ func extractLighthouseResultData(body []byte, pageURL, strategy string, elapsed 
 	// That's only available through the PSI API which includes Chrome UX Report data
 
 	return result
-}
-
-func addAuthHeaders(req *http.Request) {
-	// 1. No auth - do nothing (default)
-
-	// 2. Cloudflare Access Service Token
-	if clientID := os.Getenv("CF_ACCESS_CLIENT_ID"); clientID != "" {
-		req.Header.Set("CF-Access-Client-Id", clientID)
-		req.Header.Set("CF-Access-Client-Secret", os.Getenv("CF_ACCESS_CLIENT_SECRET"))
-		return
-	}
-
-	// 3. Bearer Token (JWT, API tokens)
-	if token := os.Getenv("LIGHTHOUSE_BEARER_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-		return
-	}
-
-	// 4. Basic Auth
-	if username := os.Getenv("LIGHTHOUSE_BASIC_USER"); username != "" {
-		password := os.Getenv("LIGHTHOUSE_BASIC_PASS")
-		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-		req.Header.Set("Authorization", "Basic "+auth)
-		return
-	}
-
-	// 5. API Key in custom header
-	if apiKey := os.Getenv("LIGHTHOUSE_API_KEY"); apiKey != "" {
-		headerName := os.Getenv("LIGHTHOUSE_API_KEY_HEADER")
-		if headerName == "" {
-			headerName = "X-API-Key" // default
-		}
-		req.Header.Set(headerName, apiKey)
-		return
-	}
-
-	// 6. Generic custom header (fallback)
-	if headerValue := os.Getenv("LIGHTHOUSE_AUTH_HEADER_VALUE"); headerValue != "" {
-		headerName := os.Getenv("LIGHTHOUSE_AUTH_HEADER_NAME")
-		if headerName != "" {
-			req.Header.Set(headerName, headerValue)
-		}
-	}
 }
 
 // getScore safely extracts score from category, handling nil cases

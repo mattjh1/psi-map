@@ -7,11 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-)
 
-const (
-	// DefaultDirPermissions sets the default permissions for created directories
-	DefaultDirPermissions = 0755
+	"github.com/mattjh1/psi-map/internal/constants"
 )
 
 var (
@@ -235,7 +232,7 @@ func SafeCreateFile(outputDir, name, extension string) (*os.File, string, error)
 	// Ensure the directory exists
 	dir := filepath.Dir(validPath)
 	// #nosec G301 - Directory permissions are explicitly set to 0755
-	if err := os.MkdirAll(dir, DefaultDirPermissions); err != nil {
+	if err := os.MkdirAll(dir, constants.DefaultDirPermissions); err != nil {
 		return nil, "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -293,7 +290,7 @@ func SafeCreateFileFromPath(validatedPath string) (*os.File, error) {
 	// Ensure the directory exists
 	dir := filepath.Dir(validatedPath)
 	// #nosec G301 - Directory permissions are explicitly set to 0755
-	if err := os.MkdirAll(dir, DefaultDirPermissions); err != nil {
+	if err := os.MkdirAll(dir, constants.DefaultDirPermissions); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 

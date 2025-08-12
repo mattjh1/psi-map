@@ -1,4 +1,3 @@
-// internal/api/server.go
 package api
 
 import (
@@ -25,6 +24,15 @@ type Server struct {
 	router     *mux.Router
 	jobManager *JobManager
 	startTime  time.Time
+}
+
+func WriteJSON(w http.ResponseWriter, status int, v any) {
+	log := logger.GetLogger()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Error("failed to encode JSON response: %v", err)
+	}
 }
 
 // NewServer creates a new API server instance
@@ -89,9 +97,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 		Version:   s.version,
 		Uptime:    uptime.String(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary Get version information
@@ -107,16 +113,53 @@ func (s *Server) versionHandler(w http.ResponseWriter, r *http.Request) {
 		BuildTime: s.buildTime,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
+// Basic PSI request (no auth needed):
+/*
+{
+  "sitemap": "https://example.com/sitemap.xml",
+  "provider": "psi",
+  "async": false
+}
+*/
+
+// Lighthouse with Bearer token:
+/*
+{
+  "sitemap": "https://example.com/sitemap.xml",
+  "provider": "lighthouse",
+  "lighthouse_url": "https://lighthouse-api.example.com",
+  "async": true,
+  "auth": {
+    "bearer_token": "your-bearer-token-here"
+  }
+}
+*/
+
+// Lighthouse with Cloudflare Access:
+/*
+{
+  "sitemap": "https://example.com/sitemap.xml",
+  "provider": "lighthouse",
+  "lighthouse_url": "https://lighthouse-api.mattjh.sh",
+  "async": true,
+  "auth": {
+    "cloudflare_access": {
+      "client_id": "$CF_ACCESS_CLIENT_ID",
+      "client_secret": "$CF_ACCESS_CLIENT_SECRET"
+    }
+  }
+}
+*/
+
 // @Summary Analyze website performance
-// @Description Start performance analysis of a website sitemap
+// @Description Start performance analysis of a website sitemap with optional authentication for external services
 // @Tags analysis
 // @Accept json
 // @Produce json
-// @Param request body AnalysisRequest true "Analysis configuration"
+// @Param request body AnalysisRequest true "Analysis configuration with optional authentication"
 // @Success 200 {object} AnalysisResponse "Synchronous analysis completed"
 // @Success 202 {object} AsyncAnalysisResponse "Asynchronous analysis started"
 // @Failure 400 {object} ErrorResponse "Bad request"
@@ -140,7 +183,22 @@ func (s *Server) analyzeHandler(w http.ResponseWriter, r *http.Request) {
 	// Set defaults
 	req.SetDefaults()
 
-	log.Info("Analysis request for: %s (async: %v)", req.Sitemap, req.Async)
+	log.Info("Analysis request for: %s (provider: %s, async: %v)", req.Sitemap, req.Provider, req.Async)
+
+	// Convert API authentication config to internal types
+	var authConfig *types.AuthenticationConfig
+	if req.Auth != nil {
+		authConfig = &types.AuthenticationConfig{
+			BearerToken: req.Auth.BearerToken,
+		}
+
+		if req.Auth.CloudflareAccess != nil {
+			authConfig.CloudflareAccess = &types.CloudflareAccessConfig{
+				ClientID:     req.Auth.CloudflareAccess.ClientID,
+				ClientSecret: req.Auth.CloudflareAccess.ClientSecret,
+			}
+		}
+	}
 
 	// Create analysis configuration
 	config := &types.AnalysisConfig{
@@ -152,6 +210,7 @@ func (s *Server) analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		CacheTTL:      req.CacheTTL,
 		Provider:      req.Provider,
 		LighthouseURL: req.LighthouseURL,
+		Auth:          authConfig,
 	}
 
 	if req.Async {
@@ -194,7 +253,7 @@ func (s *Server) getJobStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if job.Status == JobStatusCompleted {
-		response.Results = job.Results
+		response.Results = ConvertPageResults(job.Results)
 		summary := s.createSummary(job.Results)
 		response.Summary = &summary
 	}
@@ -203,15 +262,14 @@ func (s *Server) getJobStatusHandler(w http.ResponseWriter, r *http.Request) {
 		response.Error = job.Error.Error()
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary List analysis jobs
 // @Description Get a list of analysis jobs with optional filtering
 // @Tags analysis
 // @Produce json
-// @Param status query string false "Filter by status" Enums(pending,running,completed,failed,cancelled)
+// @Param status query string false "Filter by status" Enums(pending,running,completed,failed,canceled)
 // @Param limit query int false "Limit number of results" default(50)
 // @Param offset query int false "Offset for pagination" default(0)
 // @Success 200 {object} JobListResponse
@@ -257,8 +315,7 @@ func (s *Server) listJobsHandler(w http.ResponseWriter, r *http.Request) {
 		Limit: limit,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary Cancel analysis job
@@ -266,8 +323,8 @@ func (s *Server) listJobsHandler(w http.ResponseWriter, r *http.Request) {
 // @Tags analysis
 // @Produce json
 // @Param jobId path string true "Job ID"
-// @Success 200 {object} JobStatusResponse "Job cancelled successfully"
-// @Failure 400 {object} ErrorResponse "Job cannot be cancelled"
+// @Success 200 {object} JobStatusResponse "Job canceled successfully"
+// @Failure 400 {object} ErrorResponse "Job cannot be canceled"
 // @Failure 404 {object} ErrorResponse "Job not found"
 // @Router /analyze/jobs/{jobId}/cancel [post]
 func (s *Server) cancelJobHandler(w http.ResponseWriter, r *http.Request) {
@@ -292,13 +349,12 @@ func (s *Server) cancelJobHandler(w http.ResponseWriter, r *http.Request) {
 		Timestamp: time.Now().UTC(),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // Root handler provides basic API information
 func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
-	info := map[string]interface{}{
+	info := map[string]any{
 		"name":        "PSI-Map API",
 		"description": "API for analyzing website performance using PageSpeed Insights",
 		"version":     s.version,
@@ -311,8 +367,7 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
+	WriteJSON(w, http.StatusOK, info)
 }
 
 // handleAsyncAnalysis handles asynchronous analysis requests
@@ -341,9 +396,7 @@ func (s *Server) handleAsyncAnalysis(w http.ResponseWriter, config *types.Analys
 		StatusURL: fmt.Sprintf("/api/v1/analyze/status/%s", job.ID),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusAccepted, response)
 }
 
 // handleSyncAnalysis handles synchronous analysis requests
@@ -365,13 +418,12 @@ func (s *Server) handleSyncAnalysis(w http.ResponseWriter, config *types.Analysi
 	response := AnalysisResponse{
 		Status:    "completed",
 		Timestamp: time.Now().UTC(),
-		Results:   results,
+		Results:   ConvertPageResults(results),
 		Summary:   s.createSummary(results),
 		Duration:  elapsed.String(),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, http.StatusOK, response)
 }
 
 // executeAnalysis reuses the CLI analysis logic
@@ -524,9 +576,7 @@ func (s *Server) writeError(w http.ResponseWriter, code int, message string, err
 		Time:    time.Now().UTC(),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(response)
+	WriteJSON(w, code, response)
 }
 
 // Middleware functions

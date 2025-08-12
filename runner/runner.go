@@ -15,7 +15,6 @@ import (
 func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 	// Get the singleton logger and configure it
 	log := logger.GetLogger()
-
 	// Create UI instance for rendering CLI elements
 	ui := log.UI()
 
@@ -38,10 +37,12 @@ func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 				var mobile, desktop types.Result
 
 				wgInner.Add(constants.WaitGroupWorkers)
+
 				go func() {
 					defer wgInner.Done()
 					if config.Provider == "lighthouse" {
-						mobile = utils.FetchLighthouseScore(url, "mobile", config.LighthouseURL)
+						// Pass auth config to lighthouse functions
+						mobile = utils.FetchLighthouseScore(url, "mobile", config.LighthouseURL, config.Auth)
 					} else {
 						mobile = utils.FetchScore(url, "mobile")
 					}
@@ -50,7 +51,8 @@ func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 				go func() {
 					defer wgInner.Done()
 					if config.Provider == "lighthouse" {
-						desktop = utils.FetchLighthouseScore(url, "mobile", config.LighthouseURL)
+						// Pass auth config to lighthouse functions
+						desktop = utils.FetchLighthouseScore(url, "desktop", config.LighthouseURL, config.Auth)
 					} else {
 						desktop = utils.FetchScore(url, "desktop")
 					}
@@ -72,10 +74,10 @@ func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 				atomic.AddInt32(&completed, 1)
 			}(i, url)
 		}
-
 		wg.Wait()
 		return nil
 	})
+
 	if err != nil {
 		log.Error("Failed to process URLs: %v", err)
 		return results
@@ -83,6 +85,5 @@ func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 
 	// Log success
 	log.Success("All tasks completed!")
-
 	return results
 }

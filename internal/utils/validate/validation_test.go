@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -197,10 +198,10 @@ func TestValidateExtension(t *testing.T) {
 func TestValidateInputPath(t *testing.T) {
 	tempDir := t.TempDir()
 	tempFile := filepath.Join(tempDir, "test.txt")
-	require.NoError(t, os.WriteFile(tempFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(tempFile, []byte("test"), 0o644))
 
 	tempSubDir := filepath.Join(tempDir, "subdir")
-	require.NoError(t, os.Mkdir(tempSubDir, 0755))
+	require.NoError(t, os.Mkdir(tempSubDir, constants.DefaultDirPermissions))
 
 	tests := []struct {
 		name      string
@@ -253,7 +254,7 @@ func TestSafeCreateFile(t *testing.T) {
 func TestSafeOpenFile(t *testing.T) {
 	tempDir := t.TempDir()
 	tempFile := filepath.Join(tempDir, "test.txt")
-	require.NoError(t, os.WriteFile(tempFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(tempFile, []byte("content"), 0o644))
 
 	file, err := SafeOpenFile(tempFile)
 	assert.NoError(t, err)
