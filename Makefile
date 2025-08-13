@@ -42,10 +42,15 @@ NC := \033[0m # No Color
 # API specific targets
 #
 # Generate Swagger documentation
-swagger-gen:
-	@echo "Generating Swagger documentation..."
-	@swag init -g cmd/api/main.go -o docs/
-	@echo "Swagger docs generated in docs/"
+
+SWAGGER_JSON := docs/swagger.json
+GO_SOURCES := $(shell find . -type f -name '*.go' ! -path './vendor/*')
+
+$(SWAGGER_JSON): $(GO_SOURCES)
+	swag init -g cmd/api/main.go -o docs
+
+swagger-gen: $(SWAGGER_JSON)
+	@echo "Swagger docs are up-to-date."
 
 # Serve Swagger documentation locally
 swagger-serve:
@@ -60,7 +65,7 @@ api-build: swagger-gen
 	@echo "API binary built: bin/psi-map-api"
 
 # Run API server
-api-run: api-build
+api-run: swagger-gen
 	@echo "Starting PSI-Map API server..."
 	@./bin/psi-map-api
 
@@ -73,13 +78,13 @@ api-dev: swagger-gen
 api-test:
 	@echo "Testing API endpoints..."
 	@echo "Health check:"
-	@http GET localhost:8080/api/v1/health
+	@http GET localhost:8888/api/v1/health
 	@echo "\nVersion info:"
-	@http GET localhost:8080/api/v1/version
+	@http GET localhost:8888/api/v1/version
 	@echo "\nSync analysis (replace with real sitemap):"
-	@http POST localhost:8080/api/v1/analyze sitemap="https://example.com/sitemap.xml" async:=false max_workers:=2
+	@http POST localhost:8888/api/v1/analyze sitemap="https://www.mattjh.sh/sitemap.xml" async:=false max_workers:=2
 	@echo "\nAsync analysis:"
-	@http POST localhost:8080/api/v1/analyze sitemap="https://example.com/sitemap.xml" async:=true max_workers:=2
+	@http POST localhost:8888/api/v1/analyze sitemap="https://www.mattjh.sh/sitemap.xml" async:=true max_workers:=2
 
 # Docker targets for API
 docker-api-build:
@@ -88,7 +93,7 @@ docker-api-build:
 
 docker-api-run:
 	@echo "Running API in Docker..."
-	@docker run -p 8080:8080 -e PORT=8080 psi-map-api:$(VERSION)
+	@docker run -p 8888:8888 -e PORT=8888 psi-map-api:$(VERSION)
 ## Development commands
 
 dev: ## Build and run in development mode
@@ -233,12 +238,12 @@ docker-api:
 	@echo "Starting PSI-Map API in Docker..."
 	@docker run -d \
 		--name psi-map-api \
-		-p 8080:8080 \
-		-e PORT=8080 \
+		-p 8888:8888 \
+		-e PORT=8888 \
 		--entrypoint /app/psi-map-api \
 		$(DOCKER_IMAGE):$(DOCKER_TAG)
-	@echo "API running at http://localhost:8080"
-	@echo "Swagger docs at http://localhost:8080/swagger/"
+	@echo "API running at http://localhost:8888"
+	@echo "Swagger docs at http://localhost:8888/swagger/"
 
 # Run CLI in Docker
 docker-cli:
@@ -253,7 +258,7 @@ docker-cli:
 compose-up:
 	@echo "Starting services with Docker Compose..."
 	@docker-compose up -d psi-map-api
-	@echo "API available at http://localhost:8080"
+	@echo "API available at http://localhost:8888"
 
 compose-dev:
 	@echo "Starting in development mode..."
