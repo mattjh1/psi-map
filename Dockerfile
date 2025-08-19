@@ -50,7 +50,7 @@ COPY --from=builder /app/docs /app/docs
 WORKDIR /app
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8888
 
 # Health check - defaults to API health but can be overridden
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+bin/*
 
 # Test binary, built with `go test -c`
 *.test
@@ -50,5 +51,6 @@ Thumbs.db
 node_modules
 package-lock.json
 
-# Agentic AI
-GEMINI.md
+# Generated docs
+docs/*
+!docs/.keep
