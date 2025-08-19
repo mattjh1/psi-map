@@ -3,9 +3,11 @@ package types
 // AnalysisConfig contains all configuration needed for an analysis
 type AnalysisConfig struct {
 	Sitemap       string                `json:"sitemap" example:"https://example.com/sitemap.xml"`
+	OutputFile    string                `json:"output_file" example:"/path/to/report.json"`
 	OutputFormat  string                `json:"output_format" example:"json"`
 	UseStdout     bool                  `json:"use_stdout" example:"false"`
 	StartServer   bool                  `json:"start_server" example:"false"`
+	ServerPort    string                `json:"server_port" example:"8080"`
 	MaxWorkers    int                   `json:"max_workers" example:"5"`
 	CacheTTL      int                   `json:"cache_ttl" example:"3600"`
 	Provider      string                `json:"provider" enums:"psi,lighthouse" example:"psi"`

@@ -11,7 +11,6 @@ import (
 
 func TestAnalyzeCommand(t *testing.T) {
 	cmd := analyzeCommand()
-
 	// Test basic command properties
 	assert.Equal(t, "analyze", cmd.Name)
 	assert.Equal(t, []string{"run"}, cmd.Aliases)
@@ -20,8 +19,7 @@ func TestAnalyzeCommand(t *testing.T) {
 	assert.Contains(t, cmd.Description, "Analyze a sitemap and generate reports")
 
 	// Test flags
-	require.Len(t, cmd.Flags, 5, "Expected 5 flags")
-
+	require.Len(t, cmd.Flags, 7, "Expected 7 flags")
 	flagMap := make(map[string]cli.Flag)
 	for _, flag := range cmd.Flags {
 		switch f := flag.(type) {
@@ -55,7 +53,20 @@ func TestAnalyzeCommand(t *testing.T) {
 	assert.Equal(t, "name", nameFlag.Name)
 	assert.Equal(t, "psi-report", nameFlag.Value)
 
-	// Test int flags
+	providerFlag, ok := flagMap["provider"].(*cli.StringFlag)
+	if !ok {
+		t.Fatal("provider flag not found or wrong type")
+	}
+	assert.Equal(t, "provider", providerFlag.Name)
+	assert.Equal(t, "psi", providerFlag.Value)
+
+	lighthouseFlag, ok := flagMap["lighthouse-url"].(*cli.StringFlag)
+	if !ok {
+		t.Fatal("lighthouse-url flag not found or wrong type")
+	}
+	assert.Equal(t, "lighthouse-url", lighthouseFlag.Name)
+	assert.Equal(t, "", lighthouseFlag.Value)
+
 	workersFlag, ok := flagMap["workers"].(*cli.IntFlag)
 	if !ok {
 		t.Fatal("workers flag not found or wrong type")
@@ -69,7 +80,7 @@ func TestAnalyzeCommand(t *testing.T) {
 		t.Fatal("cache-ttl flag not found or wrong type")
 	}
 	assert.Equal(t, "cache-ttl", cacheTTLFlag.Name)
-	assert.Equal(t, 24, cacheTTLFlag.Value) // constants.DefaultTTLHours = 24
+	assert.Equal(t, 24, cacheTTLFlag.Value)
 }
 
 func TestAnalyzeCommandAction_MissingArgs(t *testing.T) {

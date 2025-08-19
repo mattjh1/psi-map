@@ -206,7 +206,6 @@ func ConvertPageResults(internal []*types.PageResult) []*APIPageResult {
 }
 
 // Updated response types to use API-friendly types
-// Replace your existing AnalysisResponse and JobStatusResponse with these:
 
 // AnalysisResponse represents the response for completed analysis
 type AnalysisResponse struct {
@@ -326,7 +325,7 @@ type CloudflareAccessConfig struct {
 
 // Validate validates the analysis request
 func (r *AnalysisRequest) Validate() error {
-	var lh = "lighthouse"
+	const lh = "lighthouse"
 
 	if strings.TrimSpace(r.Sitemap) == "" {
 		return fmt.Errorf("sitemap is required")

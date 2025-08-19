@@ -75,9 +75,9 @@ func RunBatch(urls []string, config *types.AnalysisConfig) []*types.PageResult {
 			}(i, url)
 		}
 		wg.Wait()
+
 		return nil
 	})
-
 	if err != nil {
 		log.Error("Failed to process URLs: %v", err)
 		return results
