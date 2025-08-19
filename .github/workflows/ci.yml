@@ -51,6 +51,14 @@ jobs:
         if: steps.check_skip.outputs.skip == 'false'
         run: make ci-setup
       
+      - name: Install swag
+        if: steps.check_skip.outputs.skip == 'false'
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+      
+      - name: Generate swagger docs
+        if: steps.check_skip.outputs.skip == 'false'
+        run: swag init -g cmd/api/main.go
+      
       - name: Run tests
         if: steps.check_skip.outputs.skip == 'false'
         run: make ci-test
@@ -102,6 +110,13 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+      
+      - name: Generate swagger docs
+        run: swag init -g cmd/api/main.go
+      
       - name: Build binaries
         run: make ci-build
       - name: Upload build artifacts
