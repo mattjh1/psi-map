@@ -108,7 +108,7 @@ build: clean ## Build binary for current platform
 
 install: ## Install binary to $GOPATH/bin
 	@echo "$(BLUE)Installing $(APP_NAME)...$(NC)"
-	go install $(BUILD_FLAGS) $(MAIN_PACKAGE)
+	go build $(BUILD_FLAGS) -o $(shell go env GOPATH)/bin/$(APP_NAME) $(MAIN_PACKAGE)
 	@echo "$(GREEN)✓ Installed $(APP_NAME) to $(shell go env GOPATH)/bin$(NC)"
 
 ## Testing and quality
