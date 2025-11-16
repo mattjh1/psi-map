@@ -1,14 +1,11 @@
 version: 2
-
-# Environment variables
 env:
   - CGO_ENABLED=0
   - APP_NAME=psi-map
 
-# Build settings
 builds:
-  - id: psi-map
-    main: ./main.go
+  - id: cli
+    main: ./cmd/cli/main.go
     binary: "{{ .Env.APP_NAME }}"
     goos:
       - linux
@@ -18,28 +15,40 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{.Version}} # Embed version in binary
+      - -s -w -X main.version={{.Version}}
+  
+  - id: api
+    main: ./cmd/api/main.go
+    binary: "{{ .Env.APP_NAME }}-api"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
 
-# Archive settings
 archives:
   - name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    rlcp: true
     files:
       - LICENSE
       - README.md
       - CHANGELOG.md
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+    formats: ["tar.gz"]
 
-# Checksum settings
 checksum:
   name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_checksums.txt"
 
-# Changelog configuration
 changelog:
   use: github
   sort: asc
   abbrev: 7
-  format: "[`{{ .SHA }}`](https://github.com/mattjh1/{{ .Env.APP_NAME }}/commit/{{ .SHA }}): {{ .Message }} ({{ .AuthorUsername }})"
-
+  format: "`{{ .SHA }}`](https://github.com/mattjh1/{{ .Env.APP_NAME }}/commit/{{ .SHA }}): {{ .Message }} ({{ .AuthorUsername }})"
   filters:
     exclude:
       - "^docs(\\(.*\\))?:"
@@ -48,7 +57,6 @@ changelog:
       - "^test(\\(.*\\))?:"
       - "^refactor(\\(.*\\))?:"
 
-# GitHub release settings
 release:
   github:
     owner: mattjh1
@@ -57,7 +65,6 @@ release:
   draft: false
   prerelease: auto
 
-# Hooks for pre-release checks
 before:
   hooks:
     - make ci-test

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/mattjh1/psi-map/internal/cache"
 	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/types"
@@ -430,16 +431,37 @@ func (s *Server) handleSyncAnalysis(w http.ResponseWriter, config *types.Analysi
 func (s *Server) executeAnalysis(config *types.AnalysisConfig) ([]*types.PageResult, error) {
 	log := logger.GetLogger()
 
-	// Parse input to get URLs (reusing CLI logic)
+	// Parse input to get URLs
 	urls, err := utils.ParseSitemap(config.Sitemap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse sitemap: %w", err)
 	}
-
 	log.Info("Found %d URLs to analyze", len(urls))
 
-	// Check URL-level cache (reusing CLI logic)
-	cachedResults, missingURLs, err := utils.CheckURLCache(config.Sitemap, urls, config.CacheTTL)
+	// Initialize cache store
+	cacheDir, err := utils.GetCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache directory: %w", err)
+	}
+	store, err := cache.NewFilesystemCacheStore(cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache store: %w", err)
+	}
+	defer store.Close()
+
+	// Load or create cache index
+	hash, err := utils.CalculateSitemapHash(config.Sitemap, urls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate sitemap hash: %w", err)
+	}
+	index, idxFilename, err := cache.LoadOrCreateIndex(store, hash, urls, config.Sitemap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load or create cache index: %w", err)
+	}
+
+	// Check URL-level cache
+	ttl := time.Duration(config.CacheTTL) * time.Hour
+	cachedResults, missingURLs, err := cache.CheckURLCache(store, index, ttl)
 	if err != nil {
 		log.Warn("Cache check failed: %v", err)
 		missingURLs = urls
@@ -449,55 +471,26 @@ func (s *Server) executeAnalysis(config *types.AnalysisConfig) ([]*types.PageRes
 	// Report cache status
 	cachedCount := len(cachedResults)
 	missingCount := len(missingURLs)
-
 	if cachedCount > 0 {
 		log.Tagged("CACHE", "Found %d cached result(s), %d URL(s) need analysis", "🎯", cachedCount, missingCount)
 	}
 
 	var newResults []*types.PageResult
-
-	// Only analyze missing URLs (reusing CLI logic)
+	// Only analyze missing URLs
 	if missingCount > 0 {
 		log.Tagged("ANALYZE", "Starting analysis of %d URL(s)...", "🔍", missingCount)
 		newResults = runner.RunBatch(missingURLs, config)
 
 		// Save new results to cache
-		if err := utils.SaveURLCache(config.Sitemap, urls, newResults); err != nil {
+		if _, err := cache.SaveResults(store, index, idxFilename, newResults); err != nil {
 			log.Error("Failed to save cache: %v", err)
 		} else {
 			log.Tagged("CACHE", "%d new result(s) cached successfully", "💾", len(newResults))
 		}
 	}
 
-	// Combine cached and new results (reusing CLI logic)
-	return s.combineResults(cachedResults, newResults), nil
-}
-
-// combineResults merges cached and new results (copied from CLI)
-func (s *Server) combineResults(cached, fresh []*types.PageResult) []*types.PageResult {
-	if len(cached) == 0 {
-		return fresh
-	}
-	if len(fresh) == 0 {
-		return cached
-	}
-
-	resultMap := make(map[string]*types.PageResult)
-
-	for _, result := range cached {
-		resultMap[result.URL] = result
-	}
-
-	for _, result := range fresh {
-		resultMap[result.URL] = result
-	}
-
-	combined := make([]*types.PageResult, 0, len(resultMap))
-	for _, result := range resultMap {
-		combined = append(combined, result)
-	}
-
-	return combined
+	// Combine cached and new results
+	return cache.CombineResultsInOrder(urls, cachedResults, newResults), nil
 }
 
 // createSummary generates a summary of results

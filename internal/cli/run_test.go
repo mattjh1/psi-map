@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/cache"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,44 +44,44 @@ func createMockResult(url string, mobileScores, desktopScores *types.CategorySco
 	}
 }
 
-func TestCombineResults(t *testing.T) {
+func TestCombineResultsInOrder(t *testing.T) {
+	orderedURLs := []string{"https://cached.com", "https://fresh.com"}
 	cached := []*types.PageResult{
 		createMockResult("https://cached.com", makeScores(0.8, 0.9, 1, 0.95), makeScores(0.4, 0.7, 1, 1)),
 	}
 	fresh := []*types.PageResult{
 		createMockResult("https://fresh.com", makeScores(0.9, 0.9, 0.9, 0.9), makeScores(0.4, 0.7, 0.5, 0.8)),
 	}
-	result := combineResults(cached, fresh)
+	result := cache.CombineResultsInOrder(orderedURLs, cached, fresh)
 	require.Len(t, result, 2)
-	// Build map for assertion
-	resultMap := map[string]*types.PageResult{}
-	for _, r := range result {
-		resultMap[r.URL] = r
-	}
-	assert.InDelta(t, 0.8, resultMap["https://cached.com"].Mobile.Scores.Performance, 0.01)
-	assert.InDelta(t, 0.9, resultMap["https://fresh.com"].Mobile.Scores.Performance, 0.01)
+	assert.Equal(t, "https://cached.com", result[0].URL)
+	assert.Equal(t, "https://fresh.com", result[1].URL)
+	assert.InDelta(t, 0.8, result[0].Mobile.Scores.Performance, 0.01)
+	assert.InDelta(t, 0.9, result[1].Mobile.Scores.Performance, 0.01)
 }
 
-func TestCombineResults_OnlyCached(t *testing.T) {
+func TestCombineResultsInOrder_OnlyCached(t *testing.T) {
+	orderedURLs := []string{"https://onlycached.com"}
 	cached := []*types.PageResult{
 		createMockResult("https://onlycached.com", makeScores(0.7, 0.8, 0.9, 1), nil),
 	}
-	result := combineResults(cached, nil)
+	result := cache.CombineResultsInOrder(orderedURLs, cached, nil)
 	require.Len(t, result, 1)
 	assert.Equal(t, "https://onlycached.com", result[0].URL)
 }
 
-func TestCombineResults_OnlyFresh(t *testing.T) {
+func TestCombineResultsInOrder_OnlyFresh(t *testing.T) {
+	orderedURLs := []string{"https://onlyfresh.com"}
 	fresh := []*types.PageResult{
 		createMockResult("https://onlyfresh.com", makeScores(1, 1, 1, 1), nil),
 	}
-	result := combineResults(nil, fresh)
+	result := cache.CombineResultsInOrder(orderedURLs, nil, fresh)
 	require.Len(t, result, 1)
 	assert.Equal(t, "https://onlyfresh.com", result[0].URL)
 }
 
-func TestCombineResults_Empty(t *testing.T) {
-	result := combineResults(nil, nil)
+func TestCombineResultsInOrder_Empty(t *testing.T) {
+	result := cache.CombineResultsInOrder(nil, nil, nil)
 	assert.Len(t, result, 0)
 }
 

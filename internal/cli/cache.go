@@ -2,12 +2,13 @@ package cli
 
 import (
 	"fmt"
-	"math"
+	"os"
 	"strings"
+	"time"
 
+	"github.com/mattjh1/psi-map/internal/cache"
 	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
-	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
 	"github.com/pterm/pterm"
 	"github.com/urfave/cli/v2"
@@ -21,26 +22,13 @@ func cacheCommands() *cli.Command {
         
 Examples:
   psi-map cache list
-  psi-map cache list --verbose
   psi-map cache clean --dry-run
   psi-map cache clear --force`,
 		Subcommands: []*cli.Command{
 			{
 				Name:   "list",
-				Usage:  "List cached results with details",
+				Usage:  "List cached sitemap indexes",
 				Action: cacheListCommand,
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Show verbose cache information including sizes",
-					},
-					&cli.IntFlag{
-						Name:  "cache-ttl",
-						Value: constants.DefaultTTLHours,
-						Usage: "Cache TTL in hours for status calculation",
-					},
-				},
 			},
 			{
 				Name:   "clean",
@@ -82,111 +70,49 @@ func cacheListCommand(c *cli.Context) error {
 	}))
 	u.Clear()
 
-	ttl := c.Int("cache-ttl")
-	verbose := c.Bool("verbose")
-
-	cacheInfos, err := utils.ListCacheFiles(ttl, true) // Always get full details
+	cacheDir, err := utils.GetCacheDir()
 	if err != nil {
-		l.Error("Failed to list cache files: %v", err)
-		return fmt.Errorf("failed to list cache files: %w", err)
+		return fmt.Errorf("failed to get cache directory: %w", err)
+	}
+	store, err := cache.NewFilesystemCacheStore(cacheDir)
+	if err != nil {
+		return fmt.Errorf("failed to create cache store: %w", err)
+	}
+	defer store.Close()
+
+	indexFiles, err := store.ListSitemapIndexFiles()
+	if err != nil {
+		return fmt.Errorf("failed to list cache indexes: %w", err)
 	}
 
-	if len(cacheInfos) == 0 {
+	if len(indexFiles) == 0 {
 		l.Info("No cached results found")
 		return nil
 	}
 
-	u.Header("Cached Sitemaps")
-	l.Tagged("CACHE", "Found %d cached sitemap(s) (TTL: %dh)", "", len(cacheInfos), ttl)
+	u.Header("Cached Sitemap Indexes")
+	l.Tagged("CACHE", "Found %d cached sitemap index(es)", "", len(indexFiles))
 
-	headers := []string{"TYPE", "AGE", "STATUS", "URL/SITEMAP", "HASH/SCORE"}
-	if verbose {
-		headers = append(headers, "SIZE")
-	}
-
+	headers := []string{"Sitemap URL", "URL Count", "Last Updated", "Hash"}
 	data := make([][]string, 0)
-	totalURLs, totalSize := 0, int64(0)
 
-	for i := range cacheInfos {
-		info := &cacheInfos[i]
-		sitemapRow := generateSitemapRow(info, verbose)
-		data = append(data, sitemapRow)
-
-		urlDetails, err := utils.GetURLCacheDetails(info.FullHash, ttl)
-		if err == nil {
-			for i := range urlDetails {
-				urlInfo := &urlDetails[i]
-				urlRow := generateURLRow(urlInfo, verbose)
-				data = append(data, urlRow)
-			}
+	for _, filename := range indexFiles {
+		index, err := store.LoadSitemapIndexFile(filename)
+		if err != nil {
+			l.Warn("Failed to load index file %s: %v", filename, err)
+			continue
 		}
-
-		if len(cacheInfos) > 1 {
-			data = append(data, make([]string, len(headers)))
+		row := []string{
+			truncateURL(index.SitemapURL, 60),
+			fmt.Sprintf("%d", len(index.URLs)),
+			index.UpdatedAt.Format(time.RFC822),
+			index.Hash,
 		}
-
-		totalURLs += info.URLCount
-		totalSize += info.TotalSize
-	}
-
-	if len(data) > 0 && isEmptyRow(data[len(data)-1]) {
-		data = data[:len(data)-1]
+		data = append(data, row)
 	}
 
 	u.Table(headers, data)
-
-	if verbose {
-		l.Info("Total: %d URLs, %s cache size", totalURLs, formatBytes(totalSize))
-	}
-
 	return nil
-}
-
-func generateSitemapRow(info *types.CacheInfo, verbose bool) []string {
-	status := "VALID"
-	if info.IsExpired {
-		status = "EXPIRED"
-	} else if info.StaleCount > 0 {
-		status = "MIXED"
-	}
-
-	sitemap := truncateURL(info.SitemapURL, 60)
-	urlsInfo := fmt.Sprintf("(%d URLs: %d valid, %d stale, %d expired)",
-		info.URLCount, info.ValidCount, info.StaleCount, info.ExpiredCount)
-
-	sitemapRow := []string{
-		"📊 SITEMAP",
-		info.Age,
-		status,
-		fmt.Sprintf("%s %s", sitemap, urlsInfo),
-		info.Hash + "...",
-	}
-
-	if verbose {
-		sitemapRow = append(sitemapRow, formatBytes(info.TotalSize))
-	}
-	return sitemapRow
-}
-
-func generateURLRow(urlInfo *types.URLCacheDetail, verbose bool) []string {
-	urlStatus := getStatusIcon(urlInfo)
-	url := truncateURL(urlInfo.URL, 70)
-	scoreStr := ""
-	if urlInfo.PerformanceScore > 0 {
-		scoreStr = fmt.Sprintf("%d", int(math.Round(urlInfo.PerformanceScore)))
-	}
-
-	urlRow := []string{
-		"  └─ URL",
-		urlInfo.Age,
-		urlStatus,
-		url,
-		scoreStr,
-	}
-	if verbose {
-		urlRow = append(urlRow, formatBytes(urlInfo.CacheSize))
-	}
-	return urlRow
 }
 
 func cacheCleanCommand(c *cli.Context) error {
@@ -201,7 +127,17 @@ func cacheCleanCommand(c *cli.Context) error {
 
 	l.Tagged("CACHE", "Starting cache cleanup (TTL: %dh)", "🧹", ttl)
 
-	cleanedCount, err := utils.CleanExpiredCacheFiles(ttl, dryRun)
+	cacheDir, err := utils.GetCacheDir()
+	if err != nil {
+		return fmt.Errorf("failed to get cache directory: %w", err)
+	}
+	store, err := cache.NewFilesystemCacheStore(cacheDir)
+	if err != nil {
+		return fmt.Errorf("failed to create cache store: %w", err)
+	}
+	defer store.Close()
+
+	cleanedCount, err := cache.CleanExpired(store, time.Duration(ttl)*time.Hour, dryRun)
 	if err != nil {
 		l.Error("Cache cleanup failed: %v", err)
 		return fmt.Errorf("failed to clean expired cache files: %w", err)
@@ -245,31 +181,20 @@ func cacheClearCommand(c *cli.Context) error {
 
 	l.Tagged("CACHE", "Clearing all cache data", "🗑️")
 
-	clearedCount, err := utils.ClearAllCacheFiles()
+	cacheDir, err := utils.GetCacheDir()
 	if err != nil {
-		l.Error("Failed to clear cache: %v", err)
-		return fmt.Errorf("failed  to clear cache: %w", err)
+		l.Error("Failed to get cache directory: %v", err)
+		return fmt.Errorf("failed to get cache directory: %w", err)
 	}
 
-	if clearedCount == 0 {
-		l.Info("No cache files found to clear")
-	} else {
-		l.Success("All cache data cleared: %d file(s) removed", clearedCount)
+	if err := os.RemoveAll(cacheDir); err != nil {
+		l.Error("Failed to clear cache: %v", err)
+		return fmt.Errorf("failed to clear cache: %w", err)
 	}
+
+	l.Success("All cache data cleared.")
 
 	return nil
-}
-
-// Helper functions
-func getStatusIcon(detail *types.URLCacheDetail) string {
-	if detail.IsExpired {
-		return "EXP"
-	} else if detail.IsStale {
-		return " STL"
-	} else if detail.HasErrors {
-		return "ERR"
-	}
-	return "OK"
 }
 
 func truncateURL(url string, maxLen int) string {
@@ -293,26 +218,4 @@ func truncateURL(url string, maxLen int) string {
 	}
 	mid := maxLen - 6
 	return url[:mid/2] + "..." + url[len(url)-mid/2:]
-}
-
-func isEmptyRow(row []string) bool {
-	for _, cell := range row {
-		if cell != "" {
-			return false
-		}
-	}
-	return true
-}
-
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

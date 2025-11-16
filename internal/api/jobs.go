@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mattjh1/psi-map/internal/cache"
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/types"
 	"github.com/mattjh1/psi-map/internal/utils"
@@ -190,8 +191,34 @@ func (jm *JobManager) executeJob(job *Job) {
 	// Update progress
 	jm.updateJobProgress(job, 0, len(urls))
 
+	// Initialize cache store
+	cacheDir, err := utils.GetCacheDir()
+	if err != nil {
+		jm.markJobFailed(job, fmt.Errorf("failed to get cache directory: %w", err))
+		return
+	}
+	store, err := cache.NewFilesystemCacheStore(cacheDir)
+	if err != nil {
+		jm.markJobFailed(job, fmt.Errorf("failed to create cache store: %w", err))
+		return
+	}
+	defer store.Close()
+
+	// Load or create cache index
+	hash, err := utils.CalculateSitemapHash(job.Config.Sitemap, urls)
+	if err != nil {
+		jm.markJobFailed(job, fmt.Errorf("failed to calculate sitemap hash: %w", err))
+		return
+	}
+	index, idxFilename, err := cache.LoadOrCreateIndex(store, hash, urls, job.Config.Sitemap)
+	if err != nil {
+		jm.markJobFailed(job, fmt.Errorf("failed to load or create cache index: %w", err))
+		return
+	}
+
 	// Check cache
-	cachedResults, missingURLs, err := utils.CheckURLCache(job.Config.Sitemap, urls, job.Config.CacheTTL)
+	ttl := time.Duration(job.Config.CacheTTL) * time.Hour
+	cachedResults, missingURLs, err := cache.CheckURLCache(store, index, ttl)
 	if err != nil {
 		log.Warn("Cache check failed for job %s: %v", job.ID, err)
 		missingURLs = urls
@@ -214,13 +241,13 @@ func (jm *JobManager) executeJob(job *Job) {
 		}
 
 		// Save to cache
-		if err := utils.SaveURLCache(job.Config.Sitemap, urls, newResults); err != nil {
+		if _, err := cache.SaveResults(store, index, idxFilename, newResults); err != nil {
 			log.Error("Failed to save cache for job %s: %v", job.ID, err)
 		}
 	}
 
 	// Combine results
-	allResults := jm.combineResults(cachedResults, newResults)
+	allResults := cache.CombineResultsInOrder(urls, cachedResults, newResults)
 
 	// Mark job as completed
 	jm.markJobCompleted(job, allResults)
@@ -239,33 +266,6 @@ func (jm *JobManager) runBatchWithProgress(job *Job, urls []string) []*types.Pag
 	jm.updateJobProgress(job, len(urls), len(urls))
 
 	return results
-}
-
-// combineResults merges cached and new results (reused from CLI)
-func (jm *JobManager) combineResults(cached, fresh []*types.PageResult) []*types.PageResult {
-	if len(cached) == 0 {
-		return fresh
-	}
-	if len(fresh) == 0 {
-		return cached
-	}
-
-	resultMap := make(map[string]*types.PageResult)
-
-	for _, result := range cached {
-		resultMap[result.URL] = result
-	}
-
-	for _, result := range fresh {
-		resultMap[result.URL] = result
-	}
-
-	combined := make([]*types.PageResult, 0, len(resultMap))
-	for _, result := range resultMap {
-		combined = append(combined, result)
-	}
-
-	return combined
 }
 
 // updateJobProgress updates the progress of a job

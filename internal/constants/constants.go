@@ -75,7 +75,8 @@ const (
 
 // File System Permissions
 const (
-	DefaultDirPermissions = 0o755
+	DefaultDirPermissions  = 0o755
+	DefaultFilePermissions = 0o600
 )
 
 // Time Calculations

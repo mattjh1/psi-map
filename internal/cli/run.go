@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattjh1/psi-map/internal/cache"
 	"github.com/mattjh1/psi-map/internal/constants"
 	"github.com/mattjh1/psi-map/internal/logger"
 	"github.com/mattjh1/psi-map/internal/server"
@@ -82,20 +83,39 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 	log := logger.GetLogger()
 	start := time.Now()
 
-	// Parse input to get URLs first (needed for URL-level cache check)
+	// Parse input to get URLs
 	urls, err := utils.ParseSitemap(config.Sitemap)
 	if err != nil {
 		return fmt.Errorf("failed to parse input: %w", err)
 	}
-
 	log.Info("Found %d URLs to analyze", len(urls))
 
-	// Check URL-level cache
-	cachedResults, missingURLs, err := utils.CheckURLCache(config.Sitemap, urls, config.CacheTTL)
+	// Initialize cache store
+	cacheDir, err := utils.GetCacheDir()
 	if err != nil {
-		log.Warn("Cache check failed: %v", err)
-		log.Info("Continuing with full analysis")
-		// Continue with full analysis if cache check fails
+		return fmt.Errorf("failed to get cache directory: %w", err)
+	}
+	store, err := cache.NewFilesystemCacheStore(cacheDir)
+	if err != nil {
+		return fmt.Errorf("failed to create cache store: %w", err)
+	}
+	defer store.Close()
+
+	// Load or create cache index
+	hash, err := utils.CalculateSitemapHash(config.Sitemap, urls)
+	if err != nil {
+		return fmt.Errorf("failed to calculate sitemap hash: %w", err)
+	}
+	index, idxFilename, err := cache.LoadOrCreateIndex(store, hash, urls, config.Sitemap)
+	if err != nil {
+		return fmt.Errorf("failed to load or create cache index: %w", err)
+	}
+
+	// Check cache for URLs
+	ttl := time.Duration(config.CacheTTL) * time.Hour
+	cachedResults, missingURLs, err := cache.CheckURLCache(store, index, ttl)
+	if err != nil {
+		log.Warn("Cache check failed: %v. Continuing with full analysis.", err)
 		missingURLs = urls
 		cachedResults = nil
 	}
@@ -103,66 +123,32 @@ func executeAnalysis(config *types.AnalysisConfig) error {
 	// Report cache status
 	cachedCount := len(cachedResults)
 	missingCount := len(missingURLs)
-
 	if cachedCount > 0 {
 		log.Tagged("CACHE", "Found %d cached result(s), %d URL(s) need analysis", "🎯", cachedCount, missingCount)
 	} else {
 		log.Tagged("CACHE", "No cached results found, analyzing all %d URLs", "📊", missingCount)
 	}
 
-	var newResults []*types.PageResult
-
+	var freshResults []*types.PageResult
 	// Only analyze missing URLs
 	if missingCount > 0 {
 		log.Tagged("ANALYZE", "Starting analysis of %d URL(s)...", "🔍", missingCount)
-		newResults = runner.RunBatch(missingURLs, config)
+		freshResults = runner.RunBatch(missingURLs, config)
 
 		// Save new results to cache
-		if err := utils.SaveURLCache(config.Sitemap, urls, newResults); err != nil {
+		if _, err := cache.SaveResults(store, index, idxFilename, freshResults); err != nil {
 			log.Error("Failed to save cache: %v", err)
-			log.Info("Continuing...")
 		} else {
-			log.Tagged("CACHE", "%d new result(s) cached successfully", "💾", len(newResults))
+			log.Tagged("CACHE", "%d new result(s) cached successfully", "💾", len(freshResults))
 		}
 	}
 
 	// Combine cached and new results
-	allResults := combineResults(cachedResults, newResults)
+	allResults := cache.CombineResultsInOrder(urls, cachedResults, freshResults)
 	elapsed := time.Since(start)
 
 	// Handle output based on configuration
 	return handleOutput(config, allResults, elapsed)
-}
-
-// combineResults merges cached and new results, maintaining URL order from sitemap
-func combineResults(cached, fresh []*types.PageResult) []*types.PageResult {
-	if len(cached) == 0 {
-		return fresh
-	}
-	if len(fresh) == 0 {
-		return cached
-	}
-
-	// Create a map for quick lookup of all results by URL
-	resultMap := make(map[string]*types.PageResult)
-
-	// Add cached results
-	for _, result := range cached {
-		resultMap[result.URL] = result
-	}
-
-	// Add new results (will overwrite any duplicates, though there shouldn't be any)
-	for _, result := range fresh {
-		resultMap[result.URL] = result
-	}
-
-	// Convert map back to slice
-	combined := make([]*types.PageResult, 0, len(resultMap))
-	for _, result := range resultMap {
-		combined = append(combined, result)
-	}
-
-	return combined
 }
 
 // handleOutput processes the results based on the configuration
