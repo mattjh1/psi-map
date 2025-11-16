@@ -36,6 +36,12 @@ jobs:
       - name: Setup release dependencies
         run: make ci-setup
 
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+      
+      - name: Generate swagger docs
+        run: swag init -g cmd/api/main.go
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

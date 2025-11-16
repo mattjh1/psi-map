@@ -22,17 +22,12 @@ builds:
 
 # Archive settings
 archives:
-  - id: psi-map
-    builds:
-      - psi-map
-    name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - name_template: "{{ .Env.APP_NAME }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    rlcp: true
     files:
       - LICENSE
       - README.md
       - CHANGELOG.md
-    format_overrides:
-      - goos: windows
-        format: zip
 
 # Checksum settings
 checksum:
@@ -60,7 +55,7 @@ release:
     name: psi-map
   name_template: "v{{ .Version }}"
   draft: false
-  prerelease: ${{ contains(.Version, '-') }}
+  prerelease: auto
 
 # Hooks for pre-release checks
 before:
